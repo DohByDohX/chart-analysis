@@ -26,9 +26,13 @@ DEFAULT_END_DATE = "2024-12-31"
 SAMPLE_STOCKS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "WMT"]
 
 # Chart settings (for Phase 1)
-WINDOW_SIZE = 100  # 100-period candlestick charts
-PREDICTION_HORIZON = 10  # Predict next 10 candles
+WINDOW_SIZE = 250  # 250-period candlestick charts
+PREDICTION_HORIZON = 5  # Predict next 5 candles
 IMAGE_SIZE = (224, 224)  # Standard ViT input size
+
+# Random sampling settings
+SAMPLES_PER_STOCK = 100  # Number of random windows to generate per stock
+RANDOM_SEED = 42  # For reproducibility
 
 # Model settings (for future phases)
 BATCH_SIZE = 32
