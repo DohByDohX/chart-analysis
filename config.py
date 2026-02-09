@@ -34,6 +34,11 @@ IMAGE_SIZE = (224, 224)  # Standard ViT input size
 SAMPLES_PER_STOCK = 100  # Number of random windows to generate per stock
 RANDOM_SEED = 42  # For reproducibility
 
+# Tokenization settings
+DOJI_THRESHOLD = 0.001  # Body size threshold for doji (0.1%)
+PERCENTILE_LOOKBACK = 50  # Number of candles to use for percentile calculations
+VOCABULARY_SIZE = 432  # Total number of possible tokens (3*3*4*4*3)
+
 # Model settings (for future phases)
 BATCH_SIZE = 32
 LEARNING_RATE = 1e-4
