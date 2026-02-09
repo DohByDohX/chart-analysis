@@ -56,3 +56,12 @@ DECODER_NUM_LAYERS = 6
 DECODER_NUM_HEADS = 8
 DECODER_DROPOUT = 0.1
 MAX_TGT_SEQ_LEN = 16  # 5-10 candles + buffer
+
+# Training settings
+CHECKPOINT_DIR = DATA_DIR / "checkpoints"
+LOG_DIR = DATA_DIR / "logs"
+GRADIENT_CLIP = 1.0
+
+# Create directories
+CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
