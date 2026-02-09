@@ -1,0 +1,20 @@
+# Core dependencies
+yfinance>=0.2.32
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization
+matplotlib>=3.7.0
+mplfinance>=0.12.10b0
+Pillow>=10.0.0
+
+# Data processing
+scikit-learn>=1.3.0
+
+# Progress tracking
+tqdm>=4.65.0
+
+# Future ML dependencies (for Phase 2)
+# torch>=2.0.0
+# torchvision>=0.15.0
+# transformers>=4.30.0

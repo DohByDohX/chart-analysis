@@ -8,7 +8,7 @@ To develop a generative AI system that interprets stock market price action visu
 
 ### 2. Core Requirements & Logic
 
-* **Visual Input:** 50-period monochrome candlestick charts with volume bars at the bottom.
+* **Visual Input:** 100-period monochrome candlestick charts with volume bars at the bottom.
 * **No "Hidden" Data:** Zero technical indicators (RSI, MACD, etc.). The model must derive all intent from pure price and volume geometry.
 * **Normalization:** All snapshots are "Zoom-to-Fit," ensuring the model learns relative patterns and volatility regimes rather than absolute price values.
 * **Tokenized Output:** Instead of pixels, the model outputs a categorical "code" representing the OHLCV characteristics of the next candle.
@@ -19,16 +19,16 @@ To develop a generative AI system that interprets stock market price action visu
 | --- | --- |
 | **Data Engine** | Python-based generator using `mplfinance` or custom `PIL` scripts to create denoised, grayscale snapshots. |
 | **Model Type** | **Encoder-Decoder Vision Transformer (ViT).** |
-| **Encoder** | Pre-trained ViT (e.g., ViT-Base) using the "Stacking Trick" (3-channel grayscale) to process the 50-period context. |
+| **Encoder** | Pre-trained ViT (e.g., ViT-Base) using the "Stacking Trick" (3-channel grayscale) to process the 100-period context. |
 | **Decoder** | Autoregressive Transformer decoder that predicts one candle token at a time. |
 | **Vocabulary** | A "Candle Code" dictionary (e.g., Code 102 = "Large Bullish Body, Small Wick, High Volume"). |
 
 ### 4. Data Specification
 
 * **Input Dimensions:**  pixels (standard for pre-trained ViTs).
-* **Sequence Length:** 50 input candles  5–10 predicted output candles.
+* **Sequence Length:** 100 input candles  5–10 predicted output candles.
 * **Preprocessing:** * Remove all UI/Grid elements.
-* Scale OHLC to  relative to the 50-period window.
+* Scale OHLC to  relative to the 100-period window.
 * Generate synthetic training data via sliding windows across S&P 500 / NASDAQ historical CSVs.
 
 

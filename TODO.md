@@ -1,7 +1,7 @@
 ### **Phase 1: Data Engineering & Tokenization**
 
 * [ ] **Dataset Acquisition**: Download historical daily or intraday OHLCV data (S&P 500, NASDAQ) in CSV format.
-* [ ] **Sliding Window Generator**: Script a windowing function to create 50-period sequences (Input) paired with the subsequent 10-period sequences (Target).
+* [ ] **Sliding Window Generator**: Script a windowing function to create 100-period sequences (Input) paired with the subsequent 10-period sequences (Target).
 * [ ] **Candle Tokenizer**:
 * [ ] Define the "Candle Code" vocabulary (mapping body size, wick length, direction, and volume to unique integers).
 * [ ] Create a script to convert raw OHLCV values into these categorical tokens.
@@ -35,5 +35,5 @@
 
 * [ ] **Autoregressive Loop**: Build the inference function where the model predicts token , renders it into the image, and uses that new image to predict .
 * [ ] **Rendering Pipeline**: Build a utility to convert the model's predicted tokens back into a visual candlestick chart for human review.
-* [ ] **Attention Mapping**: Integrate a visualization tool to see which patches of the 50-period input chart influenced the 5-10 candle forecast.
+* [ ] **Attention Mapping**: Integrate a visualization tool to see which patches of the 100-period input chart influenced the 5-10 candle forecast.
 * [ ] **Backtesting**: Compare the generated "future" charts against the actual historical outcomes to assess real-world predictive utility.
