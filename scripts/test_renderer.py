@@ -4,6 +4,7 @@ Validates image dimensions, zoom-to-fit normalization, and visual output.
 """
 import sys
 from pathlib import Path
+import gc
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -130,6 +131,8 @@ def main():
         filename = f"AAPL_window_{i}_{window['start_date']}_to_{window['end_date']}.png"
         renderer.save_image(image, output_dir / filename)
         print(f"[OK] Saved: {filename}")
+        # Force garbage collection after each render
+        gc.collect()
     
     # Test 6: Batch rendering
     print("\n" + "=" * 70)
@@ -140,7 +143,8 @@ def main():
     rendered_images = renderer.render_batch(
         windows,
         output_dir=batch_output_dir,
-        save_images=True
+        save_images=True,
+        return_images=True
     )
     
     print(f"[OK] Rendered {len(rendered_images)} images in batch")

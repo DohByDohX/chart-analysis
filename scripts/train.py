@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam
 from tqdm import tqdm
 import logging
+import numpy as np
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -18,7 +19,8 @@ from config import (
     VIT_MODEL_NAME, VOCABULARY_SIZE, ENCODER_EMBED_DIM,
     DECODER_NUM_LAYERS, DECODER_NUM_HEADS, DECODER_DROPOUT,
     MAX_TGT_SEQ_LEN, BATCH_SIZE, LEARNING_RATE, NUM_EPOCHS,
-    GRADIENT_CLIP, CHECKPOINT_DIR, LOG_DIR, DATA_DIR
+    GRADIENT_CLIP, CHECKPOINT_DIR, LOG_DIR, DATA_DIR, START_TOKEN,
+    WARMUP_STEPS, LR_SCHEDULE
 )
 
 # Set up logging
@@ -32,7 +34,37 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def train_epoch(model, dataloader, optimizer, criterion, device, epoch):
+def get_lr(step, warmup_steps, total_steps, base_lr, schedule="cosine"):
+    """
+    Calculate learning rate with warmup and decay.
+    
+    Args:
+        step: Current training step
+        warmup_steps: Number of warmup steps
+        total_steps: Total training steps
+        base_lr: Peak learning rate
+        schedule: "cosine" or "linear"
+    
+    Returns:
+        Learning rate for current step
+    """
+    if step < warmup_steps:
+        # Linear warmup
+        return base_lr * (step / warmup_steps)
+    
+    # Decay after warmup
+    progress = (step - warmup_steps) / (total_steps - warmup_steps)
+    
+    if schedule == "cosine":
+        # Cosine annealing
+        return base_lr * 0.5 * (1 + np.cos(np.pi * progress))
+    elif schedule == "linear":
+        # Linear decay
+        return base_lr * (1 - progress)
+    else:
+        return base_lr
+
+def train_epoch(model, dataloader, optimizer, criterion, device, epoch, global_step, total_steps):
     """Train for one epoch."""
     model.train()
     total_loss = 0
@@ -44,8 +76,20 @@ def train_epoch(model, dataloader, optimizer, criterion, device, epoch):
         images = images.to(device)
         target_tokens = target_tokens.to(device)
         
+        # Update learning rate
+        current_lr = get_lr(global_step, WARMUP_STEPS, total_steps, LEARNING_RATE, LR_SCHEDULE)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = current_lr
+        
+        # Prepend START token to create decoder input
+        # Input: [START, tok1, tok2, tok3, tok4]
+        # Target: [tok1, tok2, tok3, tok4, tok5]
+        batch_size = target_tokens.size(0)
+        start_tokens = torch.full((batch_size, 1), START_TOKEN, dtype=torch.long, device=device)
+        decoder_input = torch.cat([start_tokens, target_tokens[:, :-1]], dim=1)
+        
         # Forward pass
-        logits = model(images, target_tokens)  # (B, SeqLen, VocabSize)
+        logits = model(images, decoder_input)  # (B, SeqLen, VocabSize)
         
         # Calculate loss (flatten for CrossEntropyLoss)
         # logits: (B, SeqLen, VocabSize) -> (B*SeqLen, VocabSize)
@@ -63,16 +107,17 @@ def train_epoch(model, dataloader, optimizer, criterion, device, epoch):
         torch.nn.utils.clip_grad_norm_(model.parameters(), GRADIENT_CLIP)
         
         optimizer.step()
+        global_step += 1
         
         # Update metrics
         total_loss += loss.item()
         num_batches += 1
         
         # Update progress bar
-        pbar.set_postfix({'loss': loss.item()})
+        pbar.set_postfix({'loss': loss.item(), 'lr': current_lr})
     
     avg_loss = total_loss / num_batches
-    return avg_loss
+    return avg_loss, global_step
 
 def main():
     logger.info("=" * 70)
@@ -139,15 +184,21 @@ def main():
     optimizer = Adam(model.parameters(), lr=LEARNING_RATE)
     criterion = nn.CrossEntropyLoss()
     
-    logger.info(f"Optimizer: Adam, LR: {LEARNING_RATE}")
+    logger.info(f"Optimizer: Adam, LR: {LEARNING_RATE} (peak after warmup)")
+    logger.info(f"LR Schedule: {LR_SCHEDULE} with {WARMUP_STEPS} warmup steps")
     logger.info(f"Loss: CrossEntropyLoss")
     
     # Training loop
     logger.info("\nStarting training...\n")
     best_loss = float('inf')
+    global_step = 0
+    total_steps = NUM_EPOCHS * len(dataloader)
+    logger.info(f"Total training steps: {total_steps}")
     
     for epoch in range(1, NUM_EPOCHS + 1):
-        avg_loss = train_epoch(model, dataloader, optimizer, criterion, device, epoch)
+        avg_loss, global_step = train_epoch(
+            model, dataloader, optimizer, criterion, device, epoch, global_step, total_steps
+        )
         
         logger.info(f"Epoch {epoch}/{NUM_EPOCHS} - Avg Loss: {avg_loss:.4f}")
         

@@ -51,12 +51,17 @@ def main():
             logger.warning(f"CSV not found for {symbol}, skipping...")
             continue
         
-        # Generate random windows (e.g., 100 per symbol)
-        num_windows = 100
+        # Load CSV data
         try:
+            import pandas as pd
+            data = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+            
+            # Generate random windows (e.g., 100 per symbol)
+            num_windows = 100
             windows = window_gen.generate_random_windows(
-                symbol=symbol,
-                num_windows=num_windows
+                data=data,
+                num_samples=num_windows,
+                symbol=symbol
             )
             logger.info(f"Generated {len(windows)} windows for {symbol}")
             
@@ -64,14 +69,23 @@ def main():
             for i, window_data in enumerate(tqdm(windows, desc=f"Rendering {symbol}")):
                 window_id = f"{total_windows + i:05d}"
                 
-                # Save window data
-                window_gen.save_window(
-                    window_data,
-                    windows_dir / f"window_{window_id}.json"
-                )
+                # Convert DataFrames to dict for JSON serialization
+                window_to_save = {
+                    'symbol': window_data['symbol'],
+                    'start_date': window_data['start_date'],
+                    'end_date': window_data['end_date'],
+                    'input_window': window_data['input'].to_dict(orient='list'),
+                    'target_window': window_data['target'].to_dict(orient='list')
+                }
                 
-                # Render and save image
-                image = renderer.render_window(window_data['input_window'])
+                # Save window data to JSON
+                import json
+                window_path = windows_dir / f"window_{window_id}.json"
+                with open(window_path, 'w') as f:
+                    json.dump(window_to_save, f)
+                
+                # Render and save image (use the input DataFrame)
+                image = renderer.render_window(window_data['input'])
                 image_path = images_dir / f"chart_{window_id}.png"
                 renderer.save_image(image, image_path)
             

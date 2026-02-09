@@ -42,8 +42,10 @@ VOCABULARY_SIZE = 432  # Total number of possible tokens (3*3*4*4*3)
 
 # Model settings (Phase 2)
 BATCH_SIZE = 16  # Reduced for 512x512 images
-LEARNING_RATE = 1e-4
-NUM_EPOCHS = 50
+LEARNING_RATE = 1e-4  # Peak learning rate after warmup
+NUM_EPOCHS = 20
+WARMUP_STEPS = 1500  # Warmup for ~2 epochs (1000 samples / 16 batch = 63 steps/epoch)
+LR_SCHEDULE = "cosine"  # Options: "cosine", "linear"
 
 # Vision Encoder settings
 VIT_MODEL_NAME = "google/vit-base-patch32-384"
@@ -55,7 +57,10 @@ SEQUENCE_LENGTH = (IMAGE_SIZE[0] // PATCH_SIZE) ** 2 + 1  # (512/32)^2 + 1 = 257
 DECODER_NUM_LAYERS = 6
 DECODER_NUM_HEADS = 8
 DECODER_DROPOUT = 0.1
-MAX_TGT_SEQ_LEN = 16  # 5-10 candles + buffer
+MAX_TGT_SEQ_LEN = 10  # Maximum target sequence length
+
+# Special tokens
+START_TOKEN = 431  # Dedicated start token for autoregressive generation
 
 # Training settings
 CHECKPOINT_DIR = DATA_DIR / "checkpoints"

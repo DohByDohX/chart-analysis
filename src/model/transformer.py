@@ -156,7 +156,7 @@ class VisionTrader(nn.Module):
             max_len: Maximum generation length
             
         Returns:
-            Generated tokens (B, max_len)
+            Generated tokens (B, max_len) - excludes START token
         """
         self.eval()
         
@@ -166,7 +166,7 @@ class VisionTrader(nn.Module):
         # Encode images
         memory = self.encoder(images)
         
-        # Initialize
+        # Initialize with START token
         generated = torch.full(
             (batch_size, 1),
             start_token,
@@ -175,9 +175,10 @@ class VisionTrader(nn.Module):
         )
         
         # Greedy generation
-        for _ in range(max_len - 1):
+        for _ in range(max_len):
             logits = self.decoder(generated, memory)
             next_token = logits[:, -1, :].argmax(dim=-1, keepdim=True)  # (B, 1)
             generated = torch.cat([generated, next_token], dim=1)
         
-        return generated
+        # Return only the generated tokens, excluding the START token
+        return generated[:, 1:]
