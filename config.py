@@ -65,6 +65,12 @@ WINDOW_SIZE = 128  # 128-period candlestick charts (~6 months daily data)
 PREDICTION_HORIZON = 5  # Predict next 5 candles
 IMAGE_SIZE = (512, 512)  # 512×512 for clear visualization (4 pixels per candle)
 
+# Vision-to-vision masking settings
+CONTEXT_CANDLES = 123      # Visible candles in input image
+MASKED_CANDLES = 5         # Hidden candles (WINDOW_SIZE - CONTEXT_CANDLES)
+INPUT_IMAGES_DIR = DATA_DIR / "processed" / "input_images"
+TARGET_IMAGES_DIR = DATA_DIR / "processed" / "target_images"
+
 # Random sampling settings
 SAMPLES_PER_STOCK = 200  # 25 stocks × 200 = 5,000 windows (Phase 4 expansion)
 RANDOM_SEED = 42  # For reproducibility

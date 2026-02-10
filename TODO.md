@@ -2,12 +2,12 @@
 
 ## Phase 1: Data Preparation
 
-- [ ] **Target Chart Renderer**: Modify chart renderer to produce target images (5 future candles) using same rendering style as input charts
-- [ ] **Paired Dataset Generator**: Generate input/target image pairs from existing windows data
-  - [ ] Input: 128-candle chart image (already exists for 5,000 windows)
-  - [ ] Target: 5-candle chart image (new — render from existing window JSONs)
-- [ ] **Validate Pairs**: Visual inspection of input/target pairs for consistency
-- [ ] **Dataset Split**: Organize train/validation/test splits
+- [x] **Target Chart Renderer**: Modify chart renderer to produce target images (5 future candles) using same rendering style as input charts
+- [x] **Paired Dataset Generator**: Generate input/target image pairs from existing windows data
+  - [x] Input: 123-candle chart image + 5-candle masked region (512×512)
+  - [x] Target: 128-candle chart image (512×512)
+- [x] **Validate Pairs**: Programmatic + visual inspection of input/target pairs
+- [x] **Dataset Split**: Organize train/validation/test splits (4000/500/500)
 
 ## Phase 2: Model Architecture
 
