@@ -72,7 +72,13 @@ RANDOM_SEED = 42  # For reproducibility
 # Tokenization settings
 DOJI_THRESHOLD = 0.001  # Body size threshold for doji (0.1%)
 PERCENTILE_LOOKBACK = 50  # Number of candles to use for percentile calculations
-VOCABULARY_SIZE = 432  # Total number of possible tokens (3*3*4*4*3)
+
+# Gap detection thresholds
+GAP_SMALL_THRESHOLD = 0.002  # 0.2% - minimum gap to register
+GAP_LARGE_THRESHOLD = 0.01   # 1.0% - threshold for large gaps
+
+# Vocabulary: Direction (3) × Body (3) × UpperWick (4) × LowerWick (4) × Volume (3) × Gap (5) = 2,160
+VOCABULARY_SIZE = 2160  # Enhanced with gap encoding
 
 # Training hyperparameters (Phase 4.2: Extended Training)
 BATCH_SIZE = 16  # Reduced for 512x512 images
