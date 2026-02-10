@@ -1,39 +1,62 @@
-### **Phase 1: Data Engineering & Tokenization**
+# TODO: Vision-to-Vision VisionTrader
 
-* [ ] **Dataset Acquisition**: Download historical daily or intraday OHLCV data (S&P 500, NASDAQ) in CSV format.
-* [ ] **Sliding Window Generator**: Script a windowing function to create 100-period sequences (Input) paired with the subsequent 10-period sequences (Target).
-* [ ] **Candle Tokenizer**:
-* [ ] Define the "Candle Code" vocabulary (mapping body size, wick length, direction, and volume to unique integers).
-* [ ] Create a script to convert raw OHLCV values into these categorical tokens.
+## Phase 1: Data Preparation
 
+- [ ] **Target Chart Renderer**: Modify chart renderer to produce target images (5 future candles) using same rendering style as input charts
+- [ ] **Paired Dataset Generator**: Generate input/target image pairs from existing windows data
+  - [ ] Input: 128-candle chart image (already exists for 5,000 windows)
+  - [ ] Target: 5-candle chart image (new — render from existing window JSONs)
+- [ ] **Validate Pairs**: Visual inspection of input/target pairs for consistency
+- [ ] **Dataset Split**: Organize train/validation/test splits
 
-* [ ] **Image Engine**:
-* [ ] Develop a Python script to render clean, monochrome  candlestick charts.
-* [ ] Implement the "Zoom-to-Fit" logic (min-max normalization per window).
-* [ ] Implement the "Stacking Trick" (3-channel grayscale) for model compatibility.
+## Phase 2: Model Architecture
 
+- [ ] **Vision Encoder**: Set up ViT encoder for 512x512 input charts
+  - [ ] Evaluate ViT-Base (384) vs ViT-Large (512) vs resize strategy
+  - [ ] Freeze vs fine-tune decision
+- [ ] **Image Decoder**: Build CNN-based decoder to generate future chart images
+  - [ ] Design upsampling architecture (features → image)
+  - [ ] Add residual blocks for detail refinement
+- [ ] **End-to-End Model**: Combine encoder + decoder, verify forward pass
 
-* [ ] **Final Pipeline**: Save images and their corresponding token labels into a structured format (e.g., HDF5 or a directory of PNGs with a mapping JSON).
+## Phase 3: Loss Functions & Training
 
-### **Phase 2: Model Development & Training**
+- [ ] **Perceptual Loss**: Implement VGG-based feature loss
+  - [ ] Extract features from multiple VGG layers
+  - [ ] Weight different layers appropriately
+- [ ] **SSIM Loss**: Implement structural similarity loss
+- [ ] **Combined Loss**: Tune balance between perceptual and SSIM
+- [ ] **Training Script**: Build training loop with:
+  - [ ] Mixed precision (AMP)
+  - [ ] Cosine annealing LR schedule
+  - [ ] Early stopping
+  - [ ] Checkpoint saving
+  - [ ] Visualization of predictions during training
+- [ ] **Train Baseline**: Train with perceptual + SSIM loss
 
-* [ ] **Encoder Setup**: Initialize a pre-trained Vision Transformer (ViT-Base) and verify it accepts the 3-channel stacked grayscale input.
-* [ ] **Decoder Architecture**:
-* [ ] Design the autoregressive Transformer decoder.
-* [ ] Implement the Cross-Attention layer between the ViT Encoder output and the Decoder.
+## Phase 4: OHLCV Extraction Pipeline
 
+- [ ] **Candle Detection**: Detect candlestick bodies and wicks from generated images
+  - [ ] Color-based segmentation (green/red bodies)
+  - [ ] Edge detection for wick lines
+- [ ] **Price Calibration**: Map pixel Y-coordinates to price values
+  - [ ] Use input chart's known range for calibration
+- [ ] **Volume Extraction**: Detect and measure volume bars
+- [ ] **Validation**: Ensure extracted OHLCV satisfies constraints (High >= Close/Open >= Low)
+- [ ] **Test on Real Charts**: Verify extraction accuracy on actual rendered charts
 
-* [ ] **Training Loop**:
-* [ ] Set up a Cross-Entropy loss function for the token prediction.
-* [ ] Implement "Teacher Forcing" for more efficient training of the sequence decoder.
-* [ ] Log training and validation loss to monitor for over-fitting.
+## Phase 5: Evaluation & Refinement
 
+- [ ] **Visual Quality Metrics**: SSIM, FID scores on test set
+- [ ] **Prediction Accuracy**: MAPE, direction accuracy from extracted OHLCV
+- [ ] **Human Evaluation**: Manual review of generated chart continuations
+- [ ] **Error Analysis**: Identify failure modes (blurry outputs, impossible candles, etc.)
+- [ ] **Optional: Adversarial Loss**: Add GAN discriminator for sharper outputs
+- [ ] **Compare with Regression Baseline**: Quantitative comparison
 
-* [ ] **Evaluation**: Create a validation script to measure "Token Accuracy" on unseen stock symbols.
+## Phase 6: Inference & Visualization
 
-### **Phase 3: Inference & Visual Generation**
-
-* [ ] **Autoregressive Loop**: Build the inference function where the model predicts token , renders it into the image, and uses that new image to predict .
-* [ ] **Rendering Pipeline**: Build a utility to convert the model's predicted tokens back into a visual candlestick chart for human review.
-* [ ] **Attention Mapping**: Integrate a visualization tool to see which patches of the 100-period input chart influenced the 5-10 candle forecast.
-* [ ] **Backtesting**: Compare the generated "future" charts against the actual historical outcomes to assess real-world predictive utility.
+- [ ] **Prediction Pipeline**: End-to-end: chart image → predicted future chart → extracted OHLCV
+- [ ] **Attention Visualization**: Which parts of input chart influenced the prediction
+- [ ] **Side-by-Side Comparison**: Show input chart + predicted vs actual future
+- [ ] **Backtesting**: Compare predictions against historical outcomes

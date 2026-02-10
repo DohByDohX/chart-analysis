@@ -1,48 +1,87 @@
-# PRD: Project "Vision-Trader"
+# PRD: Vision-Trader
 
-## Generative Vision Transformer for Stock Pattern Forecasting
+## Pure Visual Chart Prediction Using Vision-to-Vision Learning
 
 ### 1. Product Vision
 
-To develop a generative AI system that interprets stock market price action visually (as a human trader would) and predicts future market behavior by generating a sequence of future "candle tokens."
+Build an AI system that predicts future stock price action the way a human trader does — by looking at charts. The model takes a candlestick chart image as input and generates a chart image of predicted future candles as output. No numerical targets, no tokenization — **pure visual reasoning**.
 
-### 2. Core Requirements & Logic
+### 2. Core Philosophy
 
-* **Visual Input:** 100-period monochrome candlestick charts with volume bars at the bottom.
-* **No "Hidden" Data:** Zero technical indicators (RSI, MACD, etc.). The model must derive all intent from pure price and volume geometry.
-* **Normalization:** All snapshots are "Zoom-to-Fit," ensuring the model learns relative patterns and volatility regimes rather than absolute price values.
-* **Tokenized Output:** Instead of pixels, the model outputs a categorical "code" representing the OHLCV characteristics of the next candle.
+* **Learn like humans:** Traders read charts visually. They see patterns (double tops, head & shoulders, breakouts), not numbers. Our model should do the same.
+* **No numerical supervision:** The model never sees raw OHLCV numbers during training. It learns entirely from image pairs.
+* **Numbers are post-processing:** OHLCV values are extracted from generated chart images only when needed for trade execution — just like a human reading a chart.
 
-### 3. Technical Architecture
+### 3. System Architecture
 
-| Component | Specification |
-| --- | --- |
-| **Data Engine** | Python-based generator using `mplfinance` or custom `PIL` scripts to create denoised, grayscale snapshots. |
-| **Model Type** | **Encoder-Decoder Vision Transformer (ViT).** |
-| **Encoder** | Pre-trained ViT (e.g., ViT-Base) using the "Stacking Trick" (3-channel grayscale) to process the 100-period context. |
-| **Decoder** | Autoregressive Transformer decoder that predicts one candle token at a time. |
-| **Vocabulary** | A "Candle Code" dictionary (e.g., Code 102 = "Large Bullish Body, Small Wick, High Volume"). |
+```
+Input: Historical Chart Image (128 candles, 512x512 PNG)
+    |
+    v
+Vision Encoder (ViT) — understands patterns
+    |
+    v
+Image Decoder (CNN upsampler) — imagines the future
+    |
+    v
+Output: Predicted Future Chart Image (5 candles)
+    |
+    v (post-processing, only when needed)
+OHLCV Extraction Pipeline — reads the chart
+    |
+    v
+[Open, High, Low, Close, Volume] x 5 candles
+```
 
 ### 4. Data Specification
 
-* **Input Dimensions:**  pixels (standard for pre-trained ViTs).
-* **Sequence Length:** 100 input candles  5–10 predicted output candles.
-* **Preprocessing:** * Remove all UI/Grid elements.
-* Scale OHLC to  relative to the 100-period window.
-* Generate synthetic training data via sliding windows across S&P 500 / NASDAQ historical CSVs.
+| Attribute | Value |
+| --- | --- |
+| **Input** | 512x512 monochrome candlestick chart (128 candles + volume bars) |
+| **Output** | Chart image showing 5 predicted future candles |
+| **Preprocessing** | Zoom-to-fit normalization per window; no indicators; no grid |
+| **Data Sources** | S&P 500 + NASDAQ historical daily OHLCV (25 tickers, diverse sectors) |
+| **Dataset Size** | 5,000 input/target image pairs (expandable) |
+| **Rendering** | Custom PIL-based renderer; consistent style between input and target |
 
+### 5. Model Components
 
+| Component | Role |
+| --- | --- |
+| **Vision Encoder** | Pretrained ViT (e.g., ViT-Base or ViT-Large). Extracts visual features from input chart. |
+| **Image Decoder** | CNN-based upsampler. Generates future chart image from encoded features. |
+| **Perceptual Loss** | VGG-based feature loss. Compares semantic meaning, not raw pixels. |
+| **SSIM Loss** | Structural similarity. Penalizes structural differences while tolerating minor pixel shifts. |
+| **OHLCV Extractor** | Computer vision pipeline. Detects candle bodies, wicks, and volume bars from generated images. |
 
-### 5. Success Metrics (The "Checklist")
+### 6. Training Strategy
 
-* **Token Accuracy:** Percent of correctly predicted candle "types" (Direction and Size).
-* **Visual Consistency:** When the tokens are rendered back into a chart, do the predicted candles form a logical continuation of the trend?
-* **Edge Case Resilience:** Ability to recognize "reversal" patterns (e.g., Dojis at peaks) vs. "continuation" patterns.
+* **Loss function:** Perceptual loss (VGG features) + SSIM (structural similarity). No pixel-level MSE.
+* **Why perceptual loss:** A candle shifted 1 pixel is semantically identical but has huge pixel error. Perceptual loss captures meaning, not position.
+* **Optional GAN:** Adversarial loss can be added later to sharpen outputs.
+* **No tokenization, no regression heads, no numerical targets.**
 
----
+### 7. Success Metrics
 
-### 6. Implementation Roadmap
+| Metric | Target | Description |
+| --- | --- | --- |
+| **SSIM** | > 0.7 | Structural similarity between predicted and actual charts |
+| **Visual Realism** | Pass human evaluation | Generated charts look like real continuations |
+| **Direction Accuracy** | > 55% | Predicted trend direction matches actual (extracted via OHLCV pipeline) |
+| **MAPE** | < 5% | Mean Absolute Percentage Error of extracted OHLCV vs actual |
+| **Extraction Reliability** | > 90% | OHLCV extraction succeeds on generated images |
 
-1. **Phase 1 (Data):** Script to convert historical CSV data into the 3-channel "Stacked" grayscale snapshots and generate the Token Vocabulary.
-2. **Phase 2 (Training):** Fine-tune the ViT Encoder and train the Autoregressive Decoder.
-3. **Phase 3 (Inference):** Build a loop where the model predicts a token, we render it, and feed the new image back in for the next step.
+### 8. Constraints
+
+* **No hidden data:** Zero technical indicators. Model derives all intent from pure price and volume geometry.
+* **Zoom-to-fit normalization:** Model learns relative patterns, not absolute prices.
+* **System resources:** Follow OSVariables.md guidelines (8GB RAM laptop, no GPU).
+* **Chart rendering consistency:** Input and target charts must use identical rendering style.
+
+### 9. Out of Scope (For Now)
+
+* Real-time prediction / live trading
+* Multi-timeframe analysis
+* Intraday data (using daily only)
+* Technical indicator overlays
+* Model serving / API deployment
