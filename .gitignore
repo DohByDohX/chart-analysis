@@ -64,6 +64,7 @@ mlruns/
 *.parquet
 *.feather
 data/
+!src/data/
 datasets/
 *.db
 *.sqlite

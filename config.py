@@ -107,16 +107,11 @@ GRADIENT_CLIP = 1.0  # Gradient clipping threshold
 VIT_MODEL_NAME = "google/vit-base-patch32-384"
 PATCH_SIZE = 32
 ENCODER_EMBED_DIM = 768  # Hidden dimension of ViT-Base
-SEQUENCE_LENGTH = (IMAGE_SIZE[0] // PATCH_SIZE) ** 2 + 1  # (512/32)^2 + 1 = 257
+ENCODER_NUM_PATCHES = (IMAGE_SIZE[0] // PATCH_SIZE) ** 2  # (512/32)^2 = 256
+ENCODER_FREEZE_LAYERS = 10  # Freeze first 10 of 12 transformer layers
 
-# Decoder settings
-DECODER_NUM_LAYERS = 6
-DECODER_NUM_HEADS = 8
-DECODER_DROPOUT = 0.1
-MAX_TGT_SEQ_LEN = 10  # Maximum target sequence length
-
-# Special tokens
-START_TOKEN = 431  # Dedicated start token for autoregressive generation
+# CNN Decoder settings (vision-to-vision)
+DECODER_CHANNELS = [512, 256, 128, 64, 32]  # Progressive upsampling channels
 
 # Training settings
 CHECKPOINT_DIR = DATA_DIR / "checkpoints"
