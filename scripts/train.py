@@ -40,6 +40,8 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=NUM_EPOCHS, help="Number of epochs")
     parser.add_argument("--dry-run", action="store_true", help="Run a short 1-epoch test")
     parser.add_argument("--no-preload", action="store_true", help="Disable RAM pre-loading")
+    parser.add_argument("--no-vgg", action="store_true", help="Disable VGG loss (speed test)")
+    parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint pth to resume from")
     return parser.parse_args()
 
 def main():
@@ -47,6 +49,12 @@ def main():
     
     logger.info(f"Starting training run: {args.run_name}")
     logger.info(f"Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
+    
+    # Ultra-Safe GPU Mode
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        logger.info("CUDNN Benchmark disabled for stability.")
     
     # 1. Load Splits
     splits_path = PROCESSED_DATA_DIR / "splits.json"
@@ -79,22 +87,26 @@ def main():
         batch_size=args.batch_size, 
         shuffle=True, 
         num_workers=0,  # Windows/multiprocessing issues often solved by 0 workers or handling main
-        pin_memory=True
+        pin_memory=False # Disabled to prevent system freeze on low RAM
     )
     val_loader = DataLoader(
         val_dataset, 
         batch_size=args.batch_size, 
         shuffle=False, 
         num_workers=0,
-        pin_memory=True
+        pin_memory=False # Disabled to prevent system freeze on low RAM
     )
     
     # 3. Model
     model = VisionTrader()
     
     # 4. Loss
+    perceptual_w = 0.0 if args.no_vgg else 1.0
+    if args.no_vgg:
+        logger.warning("VGG Loss disabled for speed test.")
+        
     criterion = VisionTraderLoss(
-        perceptual_weight=1.0,
+        perceptual_weight=perceptual_w,
         ssim_weight=1.0,
         masked_region_weight=10.0
     )
@@ -121,8 +133,13 @@ def main():
         optimizer=optimizer,
         scheduler=scheduler,
         num_epochs=args.epochs,
-        run_name=args.run_name
+        run_name=args.run_name,
+        accumulation_steps=2 # Effective Batch Size = 8 * 2 = 16
     )
+    
+    # 7.5 Resume if requested
+    if args.resume:
+        trainer.load_checkpoint(args.resume)
     
     # 8. Start
     trainer.train()

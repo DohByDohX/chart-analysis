@@ -7,9 +7,11 @@ from torch.utils.data import Dataset
 from pathlib import Path
 from PIL import Image
 from torchvision import transforms
+from torchvision import transforms
 from tqdm import tqdm
 import logging
 import os
+import numpy as np
 from config import INPUT_IMAGES_DIR, TARGET_IMAGES_DIR, IMAGE_SIZE
 
 logger = logging.getLogger(__name__)
@@ -43,9 +45,14 @@ class ChartDataset(Dataset):
         self.preload_ram = preload_ram
         self.data_cache = []
         
-        # Standard transform: ToTensor (0-255 -> 0.0-1.0)
-        # We perform resizing just in case, though images should already be 512x512
-        self.transform = transforms.Compose([
+        # Input transform: ToTensor (0-1) + Normalize (-1 to 1 for ViT)
+        self.input_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+        ])
+        
+        # Target transform: Just ToTensor (0-1) for Sigmoid output
+        self.target_transform = transforms.Compose([
             transforms.ToTensor(),
         ])
         
@@ -53,7 +60,7 @@ class ChartDataset(Dataset):
             self._preload_data()
             
     def _preload_data(self):
-        """Load all images into RAM."""
+        """Load all images into RAM as uint8 tensors."""
         logger.info(f"[{self.split_name}] Pre-loading {len(self.window_ids)} pairs into RAM...")
         
         # Use tqdm for progress bar
@@ -63,34 +70,20 @@ class ChartDataset(Dataset):
             
             try:
                 # Load images
-                # Convert to RGB to ensure 3 channels
                 input_img = Image.open(input_path).convert("RGB")
                 target_img = Image.open(target_path).convert("RGB")
                 
-                # Apply transforms immediately to save RAM (tensors are packed)
-                # Note: Keeping as PIL might be more compact, but converting to Tensor
-                # here saves CPU time during training.
-                # 512x512x3 float32 tensor = 3 MB. 5000 images = 15 GB.
-                # If 15GB is too much, we can transform on the fly.
-                # The user has 32GB RAM. 15GB is significant but might fit.
-                # Let's try transforming on the fly to be safer with RAM,
-                # storing PIL images usually takes less space (though they are decompressed).
-                # Actually, raw pixel data in PIL is also bytes. 512*512*3 bytes = 0.75 MB.
-                # 0.75 MB * 5000 = 3.75 GB. This is MUUUCH better.
-                # So we store PIL images in RAM, and transform in __getitem__.
+                # Convert to Tensor (uint8) (C, H, W)
+                # PIL -> ByteTensor [0, 255]
+                # transforms.PILToTensor() preserves uint8
+                input_tensor = torch.from_numpy(np.array(input_img)).permute(2, 0, 1)
+                target_tensor = torch.from_numpy(np.array(target_img)).permute(2, 0, 1)
                 
-                # Force loading pixel data
-                input_img.load()
-                target_img.load()
-                
-                self.data_cache.append((input_img, target_img))
+                self.data_cache.append((input_tensor, target_tensor))
                 
             except Exception as e:
                 logger.warning(f"Failed to load window {wid}: {e}")
-                # We might have a mismatch in lengths if we skip, but for now just warn
-                # For strict correctness, we should remove this ID from the list,
-                # but simplistic approach for now.
-                
+
         logger.info(f"[{self.split_name}] Loaded {len(self.data_cache)} pairs.")
 
     def __len__(self):
@@ -101,17 +94,25 @@ class ChartDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.preload_ram:
-            input_img, target_img = self.data_cache[idx]
+            input_tensor_u8, target_tensor_u8 = self.data_cache[idx]
+            # Convert uint8 [0, 255] -> float [0.0, 1.0]
+            input_tensor = input_tensor_u8.float() / 255.0
+            target_tensor = target_tensor_u8.float() / 255.0
+            
+            # Apply normalization to input only (0..1 -> -1..1)
+            input_tensor = (input_tensor - 0.5) / 0.5
         else:
+            # Fallback for lazy loading
             wid = self.window_ids[idx]
             input_path = INPUT_IMAGES_DIR / f"input_{wid}.png"
             target_path = TARGET_IMAGES_DIR / f"target_{wid}.png"
             
-            input_img = Image.open(input_path).convert("RGB")
-            target_img = Image.open(target_path).convert("RGB")
-        
-        # Transform to tensor
-        input_tensor = self.transform(input_img)
-        target_tensor = self.transform(target_img)
+            with Image.open(input_path) as img:
+                input_img = img.convert("RGB")
+            with Image.open(target_path) as img:
+                target_img = img.convert("RGB")
+            
+            input_tensor = self.input_transform(input_img)
+            target_tensor = self.target_transform(target_img)
         
         return input_tensor, target_tensor

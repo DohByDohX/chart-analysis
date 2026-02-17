@@ -35,7 +35,8 @@ class Trainer:
         device: torch.device = None,
         num_epochs: int = 20,
         save_every: int = 1,
-        run_name: str = "default"
+        run_name: str = "default",
+        accumulation_steps: int = 1
     ):
         self.model = model
         self.train_loader = train_loader
@@ -47,6 +48,7 @@ class Trainer:
         self.num_epochs = num_epochs
         self.save_every = save_every
         self.run_name = run_name
+        self.accumulation_steps = accumulation_steps
         
         # Setup directories
         self.checkpoint_dir = CHECKPOINT_DIR / run_name
@@ -112,32 +114,39 @@ class Trainer:
         loop = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs} [Train]", leave=True)
         
         for batch_idx, (inputs, targets) in enumerate(loop):
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            
-            # Zero gradients
-            self.optimizer.zero_grad()
-            
-            # Forward Pass with AMP
-            with autocast(enabled=USE_MIXED_PRECISION):
-                outputs = self.model(inputs)
-                loss_dict = self.criterion(outputs, targets)
-                loss = loss_dict['loss']
-            
-            # Backward Pass with Scaler
-            self.scaler.scale(loss).backward()
-            
-            # Clip gradients
-            self.scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), GRADIENT_CLIP)
-            
-            # Optimizer Step
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-            
-            total_loss += loss.item()
-            
-            # Update progress bar
-            loop.set_postfix(loss=loss.item())
+            try:
+                inputs, targets = inputs.to(self.device), targets.to(self.device)
+                
+                # Zero gradients at start of accumulation block (handled by step logic, but good for safety)
+                # self.optimizer.zero_grad() -> Moved to step logic
+                
+                # Forward Pass with AMP
+                with autocast(enabled=USE_MIXED_PRECISION):
+                    outputs = self.model(inputs)
+                    loss_dict = self.criterion(outputs, targets)
+                    loss = loss_dict['loss']
+                
+                # Backward Pass with Scaler
+                self.scaler.scale(loss).backward()
+                
+                # Gradient Accumulation
+                if (batch_idx + 1) % self.accumulation_steps == 0:
+                    # Clip gradients
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), GRADIENT_CLIP)
+                    
+                    # Optimizer Step
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                    self.optimizer.zero_grad()
+                
+                total_loss += loss.item()
+                
+                # Update progress bar
+                loop.set_postfix(loss=loss.item())
+            except Exception as e:
+                logger.error(f"Error in training batch {batch_idx}: {e}", exc_info=True)
+                raise e
             
         return total_loss / len(self.train_loader)
 
@@ -172,6 +181,7 @@ class Trainer:
             'epoch': epoch,
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
+            'scheduler': self.scheduler.state_dict() if self.scheduler else None,
             'best_val_loss': self.best_val_loss,
             'config': {
                 'run_name': self.run_name,
@@ -189,14 +199,16 @@ class Trainer:
         n = min(inputs.size(0), 4)
         
         # Helper to convert tensor to numpy image (H, W, C) range [0, 255]
-        def to_img(t):
+        def to_img(t, denorm=False):
+            if denorm:
+                t = (t * 0.5) + 0.5
             t = t.detach().cpu().numpy().transpose(1, 2, 0)
             t = np.clip(t, 0, 1)
             return (t * 255).astype(np.uint8)
             
         combined_rows = []
         for i in range(n):
-            img_in = to_img(inputs[i])
+            img_in = to_img(inputs[i], denorm=True)
             img_pred = to_img(outputs[i])
             img_tgt = to_img(targets[i])
             
@@ -216,3 +228,19 @@ class Trainer:
                 
             save_path = self.log_dir / f"viz_epoch_{epoch+1}.png"
             Image.fromarray(final_img).save(save_path)
+
+    def load_checkpoint(self, checkpoint_path: str):
+        """Load a training checkpoint."""
+        logger.info(f"Loading checkpoint from {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        
+        self.model.load_state_dict(checkpoint['state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        
+        if self.scheduler and 'scheduler' in checkpoint and checkpoint['scheduler']:
+            self.scheduler.load_state_dict(checkpoint['scheduler'])
+            
+        self.start_epoch = checkpoint['epoch'] + 1
+        self.best_val_loss = checkpoint.get('best_val_loss', float('inf'))
+        
+        logger.info(f"Resuming from epoch {self.start_epoch} with best_val_loss: {self.best_val_loss:.4f}")

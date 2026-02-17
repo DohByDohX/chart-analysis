@@ -11,13 +11,13 @@
 
 ## Phase 2: Model Architecture
 
-- [ ] **Vision Encoder**: Set up ViT encoder for 512x512 input charts
-  - [ ] Evaluate ViT-Base (384) vs ViT-Large (512) vs resize strategy
-  - [ ] Freeze vs fine-tune decision
-- [ ] **Image Decoder**: Build CNN-based decoder to generate future chart images
-  - [ ] Design upsampling architecture (features → image)
-  - [ ] Add residual blocks for detail refinement
-- [ ] **End-to-End Model**: Combine encoder + decoder, verify forward pass
+- [x] **Vision Encoder**: Set up ViT encoder for 512x512 input charts
+  - [x] Evaluate ViT-Base (384) vs ViT-Large (512) vs resize strategy (chose ViT-Base w/ position interp)
+  - [x] Freeze vs fine-tune decision (froze first 10 layers)
+- [x] **Image Decoder**: Build CNN-based decoder to generate future chart images
+  - [x] Design upsampling architecture (features → image)
+  - [x] Add residual blocks for detail refinement (used direct upsampling blocks for simplicity)
+- [x] **End-to-End Model**: Combine encoder + decoder, verify forward pass
 
 ## Phase 3: Loss Functions & Training
 

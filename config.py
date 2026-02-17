@@ -87,7 +87,7 @@ GAP_LARGE_THRESHOLD = 0.01   # 1.0% - threshold for large gaps
 VOCABULARY_SIZE = 2160  # Enhanced with gap encoding
 
 # Training hyperparameters (Phase 4.2: Extended Training)
-BATCH_SIZE = 16  # Reduced for 512x512 images
+BATCH_SIZE = 8  # User requested. Risk of instability.
 LEARNING_RATE = 1e-4  # Peak learning rate after warmup
 NUM_EPOCHS = 40  # Optimal for 5k dataset; early stopping likely triggers at 30-35
 WARMUP_STEPS = 1500  # Warmup for ~2 epochs

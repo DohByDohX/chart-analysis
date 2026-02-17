@@ -48,19 +48,13 @@ class VisionTraderLoss(nn.Module):
         logger.info(f"  Masked region weight: {masked_region_weight} (last {masked_pixels}px)")
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> dict:
-        """
-        Compute weighted loss.
-        
-        Args:
-            pred: (B, 3, 512, 512) Predicted images
-            target: (B, 3, 512, 512) Target images
-            
-        Returns:
-            dict with 'loss', 'perceptual', 'ssim', 'masked_perceptual', 'masked_ssim'
-        """
         # 1. Global Loss (Input + Prediction)
         # Helps maintain context consistency
-        global_perceptual = self.vgg(pred, target)
+        if self.perceptual_weight > 0:
+            global_perceptual = self.vgg(pred, target)
+        else:
+            global_perceptual = torch.tensor(0.0, device=pred.device)
+            
         global_ssim = self.ssim(pred, target)
         
         # 2. Masked Region Loss (Prediction Only)
@@ -69,7 +63,11 @@ class VisionTraderLoss(nn.Module):
         pred_masked = pred[..., -self.masked_pixels:]
         target_masked = target[..., -self.masked_pixels:]
         
-        masked_perceptual = self.vgg(pred_masked, target_masked)
+        if self.perceptual_weight > 0:
+            masked_perceptual = self.vgg(pred_masked, target_masked)
+        else:
+            masked_perceptual = torch.tensor(0.0, device=pred.device)
+            
         masked_ssim = self.ssim(pred_masked, target_masked)
         
         # 3. Combine
@@ -95,8 +93,9 @@ class VGGPerceptualLoss(nn.Module):
     Extracts features from relu1_2, relu2_2, relu3_4, relu4_4.
     """
     
-    def __init__(self):
+    def __init__(self, resize=True):
         super().__init__()
+        self.resize = resize
         
         # Load VGG19 pretrained on ImageNet
         vgg = models.vgg19(weights=models.VGG19_Weights.IMAGENET1K_V1).features
@@ -120,6 +119,10 @@ class VGGPerceptualLoss(nn.Module):
         # Normalize input (assuming pred/target are [0, 1])
         pred = (pred - self.mean) / self.std
         target = (target - self.mean) / self.std
+        
+        if self.resize:
+            pred = F.interpolate(pred, mode='bilinear', size=(224, 224), align_corners=False)
+            target = F.interpolate(target, mode='bilinear', size=(224, 224), align_corners=False)
         
         loss = 0.0
         x = pred

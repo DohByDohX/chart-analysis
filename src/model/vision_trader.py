@@ -61,9 +61,12 @@ class VisionTrader(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: (B, 3, 512, 512) normalized input images
+            x: (B, 3, 512, 512) normalized input images [-1, 1]
         Returns:
-            reconstructed: (B, 3, 512, 512) predicted images
+            reconstructed: (B, 3, 512, 512) predicted images [0, 1]
+            
+            Note: The first 123 candles (492 pixels) are hard-coded to match input.
+            The model only learns to predict the last 5 candles (20 pixels).
         """
         # 1. Encode to spatial features
         # Shape: (B, 768, 16, 16)
@@ -73,4 +76,20 @@ class VisionTrader(nn.Module):
         # Shape: (B, 3, 512, 512)
         reconstructed = self.decoder(features)
         
-        return reconstructed
+        # 3. Stitching: Enforce history (first 123 candles = 492 pixels)
+        # Input x is [-1, 1], decoder output is [0, 1]
+        # Denormalize x to [0, 1]: x_denorm = (x * 0.5) + 0.5
+        x_denorm = (x * 0.5) + 0.5
+        
+        # Split point: 123 candles * 4 pixels/candle = 492 pixels
+        split_idx = 492
+        
+        # Create stitched output
+        # History: Exact copy of input
+        # Future: Model prediction
+        stitched_output = torch.cat([
+            x_denorm[..., :split_idx],    # History (0-492)
+            reconstructed[..., split_idx:] # Future (492-512)
+        ], dim=-1)
+        
+        return stitched_output
