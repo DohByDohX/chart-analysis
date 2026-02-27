@@ -5,6 +5,7 @@ from PIL import Image
 import numpy as np
 import logging
 import json
+import pandas as pd
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -79,7 +80,6 @@ class ChartDataset(Dataset):
         
         # Tokenize target window
         # Convert dict to DataFrame (data is loaded from JSON as dict)
-        import pandas as pd
         target_window = window_data['target_window']
         target_df = pd.DataFrame(target_window)
         token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
