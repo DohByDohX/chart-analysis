@@ -51,7 +51,7 @@ def main():
         max_seq_len=MAX_TGT_SEQ_LEN
     ).to(device)
     
-    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", map_location=device, weights_only=False)
+    checkpoint = torch.load(CHECKPOINT_DIR / "best_model.pt", map_location=device, weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     
