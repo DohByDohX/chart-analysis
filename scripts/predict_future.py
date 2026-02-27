@@ -68,7 +68,7 @@ def main():
     checkpoint_path = CHECKPOINT_DIR / "best_model.pt"
     logger.info(f"Loading checkpoint from {checkpoint_path}")
     
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     

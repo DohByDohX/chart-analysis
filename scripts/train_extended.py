@@ -156,7 +156,7 @@ def main():
     logger.info("Loading tokenizer...")
     tokenizer = CandleTokenizer()
     tokenizer_path = DATA_DIR / "processed" / "tokenizer" / "vocabulary.json"
-    if token izer_path.exists():
+    if tokenizer_path.exists():
         tokenizer.load_vocabulary(str(tokenizer_path))
     
     # Create dataset
