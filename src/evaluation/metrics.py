@@ -93,14 +93,15 @@ class PredictionMetrics:
             Dictionary with MAE for Open, High, Low, Close
         """
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
+        cols = ['Open', 'High', 'Low', 'Close']
         
-        mae_dict = {}
-        for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col][:min_len].values
-            predicted = self.predicted_ohlcv[col][:min_len].values
-            mae_dict[col] = np.mean(np.abs(actual - predicted))
+        actual = self.actual_ohlcv[cols].iloc[:min_len].values
+        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
         
-        return mae_dict
+        # Vectorized calculation across all columns
+        mae_values = np.mean(np.abs(actual - predicted), axis=0)
+
+        return dict(zip(cols, mae_values))
     
     def rmse(self) -> Dict[str, float]:
         """
@@ -110,16 +111,15 @@ class PredictionMetrics:
             Dictionary with RMSE for Open, High, Low, Close
         """
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
+        cols = ['Open', 'High', 'Low', 'Close']
+
+        actual = self.actual_ohlcv[cols].iloc[:min_len].values
+        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
         
-        rmse_dict = {}
-        for col in ['Open', 'High', 'Low', 'Close']:
-            # Optimized: Access .values (numpy array) first, then slice.
-            # This avoids creating a new pandas Series for the slice, which is slower.
-            actual = self.actual_ohlcv[col].values[:min_len]
-            predicted = self.predicted_ohlcv[col].values[:min_len]
-            rmse_dict[col] = np.sqrt(np.mean((actual - predicted) ** 2))
+        # Vectorized calculation across all columns
+        rmse_values = np.sqrt(np.mean((actual - predicted) ** 2, axis=0))
         
-        return rmse_dict
+        return dict(zip(cols, rmse_values))
     
     def mape(self) -> Dict[str, float]:
         """
@@ -129,23 +129,22 @@ class PredictionMetrics:
             Dictionary with MAPE for Open, High, Low, Close
         """
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
+        cols = ['Open', 'High', 'Low', 'Close']
+
+        actual = self.actual_ohlcv[cols].iloc[:min_len].values
+        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
         
         mape_dict = {}
-        for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col].values[:min_len]
-            predicted = self.predicted_ohlcv[col].values[:min_len]
+        for i, col in enumerate(cols):
+            a = actual[:, i]
+            p = predicted[:, i]
             
             # Avoid division by zero
-            mask = actual != 0
-            count = np.count_nonzero(mask)
-
-            if count == 0:
+            mask = a != 0
+            if mask.sum() == 0:
                 mape_dict[col] = 0.0
             else:
-                diff = np.abs(actual - predicted)
-                ape = np.zeros_like(actual, dtype=np.float64)
-                np.divide(diff, np.abs(actual), out=ape, where=mask)
-                mape_dict[col] = (ape.sum() / count) * 100
+                mape_dict[col] = np.mean(np.abs((a[mask] - p[mask]) / a[mask])) * 100
         
         return mape_dict
     
