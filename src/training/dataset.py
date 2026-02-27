@@ -5,6 +5,7 @@ from PIL import Image
 import numpy as np
 import logging
 import json
+import pandas as pd
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +42,16 @@ class ChartDataset(Dataset):
         
         if len(self.window_files) == 0:
             raise ValueError(f"No window files found in {windows_dir}")
+
+        # Pre-calculate image paths and verify existence
+        self.image_paths = []
+        for window_file in self.window_files:
+            # Extract window ID from filename (e.g., "window_00001.json" -> "00001")
+            window_id = window_file.stem.split('_')[1]
+            image_path = self.images_dir / f"chart_{window_id}.png"
+            if not image_path.exists():
+                raise FileNotFoundError(f"Image not found: {image_path}")
+            self.image_paths.append(image_path)
         
         logger.info(f"Loaded {len(self.window_files)} windows from {windows_dir}")
     
@@ -60,13 +71,8 @@ class ChartDataset(Dataset):
         with open(window_file, 'r') as f:
             window_data = json.load(f)
         
-        # Extract window ID from filename (e.g., "window_00001.json" -> "00001")
-        window_id = window_file.stem.split('_')[1]
-        
-        # Load corresponding image
-        image_path = self.images_dir / f"chart_{window_id}.png"
-        if not image_path.exists():
-            raise FileNotFoundError(f"Image not found: {image_path}")
+        # Load corresponding image (using pre-calculated path)
+        image_path = self.image_paths[idx]
         
         image = Image.open(image_path).convert('RGB')
         
@@ -79,7 +85,6 @@ class ChartDataset(Dataset):
         
         # Tokenize target window
         # Convert dict to DataFrame (data is loaded from JSON as dict)
-        import pandas as pd
         target_window = window_data['target_window']
         target_df = pd.DataFrame(target_window)
         token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
