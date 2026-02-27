@@ -113,8 +113,10 @@ class PredictionMetrics:
         
         rmse_dict = {}
         for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col][:min_len].values
-            predicted = self.predicted_ohlcv[col][:min_len].values
+            # Optimized: Access .values (numpy array) first, then slice.
+            # This avoids creating a new pandas Series for the slice, which is slower.
+            actual = self.actual_ohlcv[col].values[:min_len]
+            predicted = self.predicted_ohlcv[col].values[:min_len]
             rmse_dict[col] = np.sqrt(np.mean((actual - predicted) ** 2))
         
         return rmse_dict
