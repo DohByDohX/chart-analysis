@@ -65,10 +65,10 @@ class ChartDataset(Dataset):
         
         # Load corresponding image
         image_path = self.images_dir / f"chart_{window_id}.png"
-        if not image_path.exists():
+        try:
+            image = Image.open(image_path).convert('RGB')
+        except FileNotFoundError:
             raise FileNotFoundError(f"Image not found: {image_path}")
-        
-        image = Image.open(image_path).convert('RGB')
         
         # Convert to tensor and normalize to [0, 1]
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float() / 255.0
