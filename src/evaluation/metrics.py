@@ -113,8 +113,10 @@ class PredictionMetrics:
         
         rmse_dict = {}
         for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col][:min_len].values
-            predicted = self.predicted_ohlcv[col][:min_len].values
+            # Optimized: Access .values (numpy array) first, then slice.
+            # This avoids creating a new pandas Series for the slice, which is slower.
+            actual = self.actual_ohlcv[col].values[:min_len]
+            predicted = self.predicted_ohlcv[col].values[:min_len]
             rmse_dict[col] = np.sqrt(np.mean((actual - predicted) ** 2))
         
         return rmse_dict
@@ -130,15 +132,20 @@ class PredictionMetrics:
         
         mape_dict = {}
         for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col][:min_len].values
-            predicted = self.predicted_ohlcv[col][:min_len].values
+            actual = self.actual_ohlcv[col].values[:min_len]
+            predicted = self.predicted_ohlcv[col].values[:min_len]
             
             # Avoid division by zero
             mask = actual != 0
-            if mask.sum() == 0:
+            count = np.count_nonzero(mask)
+
+            if count == 0:
                 mape_dict[col] = 0.0
             else:
-                mape_dict[col] = np.mean(np.abs((actual[mask] - predicted[mask]) / actual[mask])) * 100
+                diff = np.abs(actual - predicted)
+                ape = np.zeros_like(actual, dtype=np.float64)
+                np.divide(diff, np.abs(actual), out=ape, where=mask)
+                mape_dict[col] = (ape.sum() / count) * 100
         
         return mape_dict
     

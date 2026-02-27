@@ -74,8 +74,6 @@ class ChartDataset(Dataset):
         # Load corresponding image (using pre-calculated path)
         image_path = self.image_paths[idx]
         
-        image = Image.open(image_path).convert('RGB')
-        
         # Convert to tensor and normalize to [0, 1]
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float() / 255.0
         
