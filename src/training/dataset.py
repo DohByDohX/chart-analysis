@@ -42,6 +42,19 @@ class ChartDataset(Dataset):
         
         if len(self.window_files) == 0:
             raise ValueError(f"No window files found in {windows_dir}")
+
+        # Pre-calculate image paths and verify existence
+        self.image_paths = []
+        for window_file in self.window_files:
+            # Extract window ID from filename (e.g., "window_00001.json" -> "00001")
+            window_id = window_file.stem.split('_')[1]
+            image_path = self.images_dir / f"chart_{window_id}.png"
+            if not image_path.exists():
+                raise FileNotFoundError(f"Image not found: {image_path}")
+            self.image_paths.append(image_path)
+
+        # Cache for tokenized targets
+        self.token_cache = {}
         
         logger.info(f"Loaded {len(self.window_files)} windows from {windows_dir}")
     
@@ -56,19 +69,8 @@ class ChartDataset(Dataset):
             image: Tensor (3, H, W)
             target_tokens: Tensor (SeqLen,)
         """
-        # Load window data
-        window_file = self.window_files[idx]
-        with open(window_file, 'r') as f:
-            window_data = json.load(f)
-        
-        # Extract window ID from filename (e.g., "window_00001.json" -> "00001")
-        window_id = window_file.stem.split('_')[1]
-        
-        # Load corresponding image
-        image_path = self.images_dir / f"chart_{window_id}.png"
-        if not image_path.exists():
-            raise FileNotFoundError(f"Image not found: {image_path}")
-        
+        # Load corresponding image (using pre-calculated path)
+        image_path = self.image_paths[idx]
         image = Image.open(image_path).convert('RGB')
         
         # Convert to tensor and normalize to [0, 1]

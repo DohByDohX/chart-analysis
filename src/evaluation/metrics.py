@@ -3,7 +3,7 @@ Comprehensive metrics for evaluating VisionTrader predictions.
 """
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -93,14 +93,15 @@ class PredictionMetrics:
             Dictionary with MAE for Open, High, Low, Close
         """
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
+        cols = ['Open', 'High', 'Low', 'Close']
         
-        mae_dict = {}
-        for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col][:min_len].values
-            predicted = self.predicted_ohlcv[col][:min_len].values
-            mae_dict[col] = np.mean(np.abs(actual - predicted))
+        actual = self.actual_ohlcv[cols].iloc[:min_len].values
+        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
         
-        return mae_dict
+        # Vectorized calculation across all columns
+        mae_values = np.mean(np.abs(actual - predicted), axis=0)
+
+        return dict(zip(cols, mae_values))
     
     def rmse(self) -> Dict[str, float]:
         """
@@ -110,14 +111,15 @@ class PredictionMetrics:
             Dictionary with RMSE for Open, High, Low, Close
         """
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
+        cols = ['Open', 'High', 'Low', 'Close']
+
+        actual = self.actual_ohlcv[cols].iloc[:min_len].values
+        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
         
-        rmse_dict = {}
-        for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col][:min_len].values
-            predicted = self.predicted_ohlcv[col][:min_len].values
-            rmse_dict[col] = np.sqrt(np.mean((actual - predicted) ** 2))
+        # Vectorized calculation across all columns
+        rmse_values = np.sqrt(np.mean((actual - predicted) ** 2, axis=0))
         
-        return rmse_dict
+        return dict(zip(cols, rmse_values))
     
     def mape(self) -> Dict[str, float]:
         """
@@ -127,22 +129,26 @@ class PredictionMetrics:
             Dictionary with MAPE for Open, High, Low, Close
         """
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
+        cols = ['Open', 'High', 'Low', 'Close']
+
+        actual = self.actual_ohlcv[cols].iloc[:min_len].values
+        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
         
         mape_dict = {}
-        for col in ['Open', 'High', 'Low', 'Close']:
-            actual = self.actual_ohlcv[col][:min_len].values
-            predicted = self.predicted_ohlcv[col][:min_len].values
+        for i, col in enumerate(cols):
+            a = actual[:, i]
+            p = predicted[:, i]
             
             # Avoid division by zero
-            mask = actual != 0
+            mask = a != 0
             if mask.sum() == 0:
                 mape_dict[col] = 0.0
             else:
-                mape_dict[col] = np.mean(np.abs((actual[mask] - predicted[mask]) / actual[mask])) * 100
+                mape_dict[col] = np.mean(np.abs((a[mask] - p[mask]) / a[mask])) * 100
         
         return mape_dict
     
-    def return_metrics(self) -> Dict[str, float]:
+    def return_metrics(self) -> Dict[str, Union[float, bool]]:
         """
         Calculate return prediction metrics.
         
@@ -175,7 +181,7 @@ class PredictionMetrics:
             'actual_return': actual_return,
             'predicted_return': predicted_return,
             'return_error': return_error,
-            'return_direction_correct': direction_correct
+            'return_direction_correct': bool(direction_correct)
         }
     
     def price_range_accuracy(self) -> Dict[str, float]:
