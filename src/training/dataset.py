@@ -79,25 +79,13 @@ class ChartDataset(Dataset):
         # Apply transforms if any
         if self.transform is not None:
             image = self.transform(image)
-
-        # Check cache for target tokens
-        if idx in self.token_cache:
-            target_tokens = self.token_cache[idx]
-        else:
-            # Load window data
-            window_file = self.window_files[idx]
-            with open(window_file, 'r') as f:
-                window_data = json.load(f)
-
-            # Tokenize target window
-            # Convert dict to DataFrame (data is loaded from JSON as dict)
-            target_window = window_data['target_window']
-            target_df = pd.DataFrame(target_window)
-            token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
-            target_tokens = torch.tensor(token_ids, dtype=torch.long)
-
-            # Cache the result
-            self.token_cache[idx] = target_tokens
+        
+        # Tokenize target window
+        # Convert dict to DataFrame (data is loaded from JSON as dict)
+        target_window = window_data['target_window']
+        target_df = pd.DataFrame(target_window)
+        token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
+        target_tokens = torch.tensor(token_ids, dtype=torch.long)
         
         return image, target_tokens
     
