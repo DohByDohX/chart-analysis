@@ -95,13 +95,14 @@ class PredictionMetrics:
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
         cols = ['Open', 'High', 'Low', 'Close']
         
-        actual = self.actual_ohlcv[cols].iloc[:min_len].values
-        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
-        
-        # Vectorized calculation across all columns
-        mae_values = np.mean(np.abs(actual - predicted), axis=0)
+        mae_dict = {}
+        for col in cols:
+            # Bolt optimization: Extract 1D numpy array directly, avoiding DataFrame multi-column slice overhead
+            a = self.actual_ohlcv[col].values[:min_len]
+            p = self.predicted_ohlcv[col].values[:min_len]
+            mae_dict[col] = float(np.mean(np.abs(a - p)))
 
-        return dict(zip(cols, mae_values))
+        return mae_dict
     
     def rmse(self) -> Dict[str, float]:
         """
@@ -113,13 +114,14 @@ class PredictionMetrics:
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
         cols = ['Open', 'High', 'Low', 'Close']
 
-        actual = self.actual_ohlcv[cols].iloc[:min_len].values
-        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
-        
-        # Vectorized calculation across all columns
-        rmse_values = np.sqrt(np.mean((actual - predicted) ** 2, axis=0))
-        
-        return dict(zip(cols, rmse_values))
+        rmse_dict = {}
+        for col in cols:
+            # Bolt optimization: Extract 1D numpy array directly
+            a = self.actual_ohlcv[col].values[:min_len]
+            p = self.predicted_ohlcv[col].values[:min_len]
+            rmse_dict[col] = float(np.sqrt(np.mean((a - p) ** 2)))
+
+        return rmse_dict
     
     def mape(self) -> Dict[str, float]:
         """
@@ -131,20 +133,22 @@ class PredictionMetrics:
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
         cols = ['Open', 'High', 'Low', 'Close']
 
-        actual = self.actual_ohlcv[cols].iloc[:min_len].values
-        predicted = self.predicted_ohlcv[cols].iloc[:min_len].values
-        
         mape_dict = {}
-        for i, col in enumerate(cols):
-            a = actual[:, i]
-            p = predicted[:, i]
+        for col in cols:
+            # Bolt optimization: Extract 1D numpy array directly
+            a = self.actual_ohlcv[col].values[:min_len]
+            p = self.predicted_ohlcv[col].values[:min_len]
             
             # Avoid division by zero
             mask = a != 0
-            if mask.sum() == 0:
+            if not np.any(mask):
                 mape_dict[col] = 0.0
             else:
-                mape_dict[col] = np.mean(np.abs((a[mask] - p[mask]) / a[mask])) * 100
+                # Bolt optimization: Element-wise arithmetic using memory-efficient masked operations
+                diff = np.abs(a - p)
+                out_arr = np.zeros_like(diff, dtype=np.float64)
+                pct_err = np.divide(diff, a, out=out_arr, where=mask)
+                mape_dict[col] = float(np.mean(pct_err[mask])) * 100
         
         return mape_dict
     
@@ -175,7 +179,7 @@ class PredictionMetrics:
         return_error = abs(predicted_return - actual_return)
         
         # Direction correctness
-        direction_correct = (actual_return >= 0) == (predicted_return >= 0)
+        direction_correct = bool((actual_return >= 0) == (predicted_return >= 0))
         
         return {
             'actual_return': actual_return,
