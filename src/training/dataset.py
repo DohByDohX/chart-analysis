@@ -52,6 +52,9 @@ class ChartDataset(Dataset):
             if not image_path.exists():
                 raise FileNotFoundError(f"Image not found: {image_path}")
             self.image_paths.append(image_path)
+
+        # Cache for tokenized targets
+        self.token_cache = {}
         
         logger.info(f"Loaded {len(self.window_files)} windows from {windows_dir}")
     
@@ -66,13 +69,9 @@ class ChartDataset(Dataset):
             image: Tensor (3, H, W)
             target_tokens: Tensor (SeqLen,)
         """
-        # Load window data
-        window_file = self.window_files[idx]
-        with open(window_file, 'r') as f:
-            window_data = json.load(f)
-        
         # Load corresponding image (using pre-calculated path)
         image_path = self.image_paths[idx]
+        image = Image.open(image_path).convert('RGB')
         
         # Convert to tensor and normalize to [0, 1]
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float() / 255.0
@@ -80,13 +79,25 @@ class ChartDataset(Dataset):
         # Apply transforms if any
         if self.transform is not None:
             image = self.transform(image)
-        
-        # Tokenize target window
-        # Convert dict to DataFrame (data is loaded from JSON as dict)
-        target_window = window_data['target_window']
-        target_df = pd.DataFrame(target_window)
-        token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
-        target_tokens = torch.tensor(token_ids, dtype=torch.long)
+
+        # Check cache for target tokens
+        if idx in self.token_cache:
+            target_tokens = self.token_cache[idx]
+        else:
+            # Load window data
+            window_file = self.window_files[idx]
+            with open(window_file, 'r') as f:
+                window_data = json.load(f)
+
+            # Tokenize target window
+            # Convert dict to DataFrame (data is loaded from JSON as dict)
+            target_window = window_data['target_window']
+            target_df = pd.DataFrame(target_window)
+            token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
+            target_tokens = torch.tensor(token_ids, dtype=torch.long)
+
+            # Cache the result
+            self.token_cache[idx] = target_tokens
         
         return image, target_tokens
     
