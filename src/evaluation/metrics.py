@@ -3,7 +3,7 @@ Comprehensive metrics for evaluating VisionTrader predictions.
 """
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -148,7 +148,7 @@ class PredictionMetrics:
         
         return mape_dict
     
-    def return_metrics(self) -> Dict[str, float]:
+    def return_metrics(self) -> Dict[str, Union[float, bool]]:
         """
         Calculate return prediction metrics.
         
@@ -181,7 +181,7 @@ class PredictionMetrics:
             'actual_return': actual_return,
             'predicted_return': predicted_return,
             'return_error': return_error,
-            'return_direction_correct': direction_correct
+            'return_direction_correct': bool(direction_correct)
         }
     
     def price_range_accuracy(self) -> Dict[str, float]:
