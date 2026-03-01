@@ -76,14 +76,15 @@ class PredictionMetrics:
         if min_len == 0:
             return 0.0
         
-        actual_directions = (self.actual_ohlcv['Close'][:min_len] >= 
-                           self.actual_ohlcv['Open'][:min_len]).astype(int)
-        predicted_directions = (self.predicted_ohlcv['Close'][:min_len] >= 
-                              self.predicted_ohlcv['Open'][:min_len]).astype(int)
+        # Bolt optimization: Extract 1D numpy array directly
+        actual_directions = (self.actual_ohlcv['Close'].values[:min_len] >=
+                           self.actual_ohlcv['Open'].values[:min_len]).astype(int)
+        predicted_directions = (self.predicted_ohlcv['Close'].values[:min_len] >=
+                              self.predicted_ohlcv['Open'].values[:min_len]).astype(int)
         
-        matches = (actual_directions.values == predicted_directions.values).sum()
+        matches = (actual_directions == predicted_directions).sum()
         accuracy = (matches / min_len) * 100
-        return accuracy
+        return float(accuracy)
     
     def mae(self) -> Dict[str, float]:
         """
@@ -168,11 +169,13 @@ class PredictionMetrics:
             }
         
         # Calculate actual return
-        actual_final_close = self.actual_ohlcv.iloc[-1]['Close']
+        # Bolt optimization: Extract values[-1] directly instead of using .iloc
+        actual_final_close = self.actual_ohlcv['Close'].values[-1]
         actual_return = ((actual_final_close / self.last_close) - 1) * 100
         
         # Calculate predicted return
-        predicted_final_close = self.predicted_ohlcv.iloc[-1]['Close']
+        # Bolt optimization: Extract values[-1] directly instead of using .iloc
+        predicted_final_close = self.predicted_ohlcv['Close'].values[-1]
         predicted_return = ((predicted_final_close / self.last_close) - 1) * 100
         
         # Return error
@@ -197,10 +200,22 @@ class PredictionMetrics:
         """
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
         
-        actual_high = self.actual_ohlcv['High'][:min_len].max()
-        actual_low = self.actual_ohlcv['Low'][:min_len].min()
-        predicted_high = self.predicted_ohlcv['High'][:min_len].max()
-        predicted_low = self.predicted_ohlcv['Low'][:min_len].min()
+        if min_len == 0:
+            return {
+                'actual_high': 0.0,
+                'actual_low': 0.0,
+                'predicted_high': 0.0,
+                'predicted_low': 0.0,
+                'high_error': 0.0,
+                'low_error': 0.0,
+                'range_error': 0.0
+            }
+
+        # Bolt optimization: Extract 1D numpy array directly before .max()/.min()
+        actual_high = float(self.actual_ohlcv['High'].values[:min_len].max())
+        actual_low = float(self.actual_ohlcv['Low'].values[:min_len].min())
+        predicted_high = float(self.predicted_ohlcv['High'].values[:min_len].max())
+        predicted_low = float(self.predicted_ohlcv['Low'].values[:min_len].min())
         
         high_error = abs(predicted_high - actual_high)
         low_error = abs(predicted_low - actual_low)
