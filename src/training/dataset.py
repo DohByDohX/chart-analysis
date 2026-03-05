@@ -82,10 +82,16 @@ class ChartDataset(Dataset):
         
         # Tokenize target window
         # Convert dict to DataFrame (data is loaded from JSON as dict)
-        target_window = window_data['target_window']
-        target_df = pd.DataFrame(target_window)
-        token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
-        target_tokens = torch.tensor(token_ids, dtype=torch.long)
+        # ⚡ Bolt Optimization: Lazily cache tokenized targets to prevent redundant
+        # JSON parsing and tokenization during training loops.
+        if idx not in self.token_cache:
+            window_data = self.get_window_data(idx)
+            target_window = window_data['target_window']
+            target_df = pd.DataFrame(target_window)
+            token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
+            self.token_cache[idx] = torch.tensor(token_ids, dtype=torch.long)
+
+        target_tokens = self.token_cache[idx]
         
         return image, target_tokens
     
