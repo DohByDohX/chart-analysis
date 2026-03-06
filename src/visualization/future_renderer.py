@@ -78,12 +78,12 @@ class FutureRenderer:
         linestyle = '--' if is_predicted else '-'
         linewidth = 1.5 if is_predicted else 1.0
         
-        for i, (idx, row) in enumerate(data.iterrows()):
+        for i, row in enumerate(data.itertuples()):
             x = x_offset + i
-            open_price = row['Open']
-            high_price = row['High']
-            low_price = row['Low']
-            close_price = row['Close']
+            open_price = row.Open
+            high_price = row.High
+            low_price = row.Low
+            close_price = row.Close
             
             # Determine candle color
             is_bullish = close_price >= open_price
@@ -135,10 +135,10 @@ class FutureRenderer:
         if max_volume == 0:
             return
         
-        for i, (idx, row) in enumerate(data.iterrows()):
+        for i, row in enumerate(data.itertuples()):
             x = x_offset + i
-            volume = row['Volume']
-            is_bullish = row['Close'] >= row['Open']
+            volume = row.Volume
+            is_bullish = row.Close >= row.Open
             color = colors['bullish'] if is_bullish else colors['bearish']
             
             # Normalize volume to 0.15 of price range for visualization
