@@ -81,11 +81,16 @@ class ChartDataset(Dataset):
             image = self.transform(image)
         
         # Tokenize target window
-        # Convert dict to DataFrame (data is loaded from JSON as dict)
-        target_window = window_data['target_window']
-        target_df = pd.DataFrame(target_window)
-        token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
-        target_tokens = torch.tensor(token_ids, dtype=torch.long)
+        if idx in self.token_cache:
+            target_tokens = self.token_cache[idx]
+        else:
+            # Load from JSON and tokenize
+            window_data = self.get_window_data(idx)
+            target_window = window_data['target_window']
+            target_df = pd.DataFrame(target_window)
+            token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
+            target_tokens = torch.tensor(token_ids, dtype=torch.long)
+            self.token_cache[idx] = target_tokens
         
         return image, target_tokens
     
