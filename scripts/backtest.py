@@ -252,13 +252,15 @@ def main():
         'return_direction_correct': 'mean'
     }).round(2)
     
-    for symbol, row in symbol_stats.iterrows():
+    # Bolt optimization: Replace iterrows() with itertuples() for faster iteration over DataFrames
+    for row in symbol_stats.itertuples():
+        symbol = row.Index
         logger.info(f"\n{symbol}:")
-        logger.info(f"  Token Accuracy: {row['token_accuracy']:.1f}%")
-        logger.info(f"  Directional Accuracy: {row['directional_accuracy']:.1f}%")
-        logger.info(f"  MAE (Close): ${row['mae_close']:.2f}")
-        logger.info(f"  Return Error: {row['return_error']:.2f}%")
-        logger.info(f"  Return Direction Accuracy: {row['return_direction_correct']*100:.1f}%")
+        logger.info(f"  Token Accuracy: {row.token_accuracy:.1f}%")
+        logger.info(f"  Directional Accuracy: {row.directional_accuracy:.1f}%")
+        logger.info(f"  MAE (Close): ${row.mae_close:.2f}")
+        logger.info(f"  Return Error: {row.return_error:.2f}%")
+        logger.info(f"  Return Direction Accuracy: {row.return_direction_correct*100:.1f}%")
     
     # Save aggregate stats
     stats_path = output_dir / "aggregate_stats.json"
@@ -329,12 +331,14 @@ def generate_report(
         f.write("| Symbol | Token Acc | Dir Acc | MAE (Close) | Return Error | Return Dir Acc |\n")
         f.write("|--------|-----------|---------|-------------|--------------|----------------|\n")
         
-        for symbol, row in symbol_stats.iterrows():
-            f.write(f"| {symbol} | {row['token_accuracy']:.1f}% | "
-                   f"{row['directional_accuracy']:.1f}% | "
-                   f"${row['mae_close']:.2f} | "
-                   f"{row['return_error']:.2f}% | "
-                   f"{row['return_direction_correct']*100:.1f}% |\n")
+        # Bolt optimization: Replace iterrows() with itertuples() for faster iteration over DataFrames
+        for row in symbol_stats.itertuples():
+            symbol = row.Index
+            f.write(f"| {symbol} | {row.token_accuracy:.1f}% | "
+                   f"{row.directional_accuracy:.1f}% | "
+                   f"${row.mae_close:.2f} | "
+                   f"{row.return_error:.2f}% | "
+                   f"{row.return_direction_correct*100:.1f}% |\n")
         
         f.write("\n")
         
@@ -343,15 +347,17 @@ def generate_report(
         top_5 = results_df.nsmallest(5, 'return_error')[['symbol', 'date_range', 'token_accuracy', 'return_error']]
         f.write("| Symbol | Date Range | Token Acc | Return Error |\n")
         f.write("|--------|------------|-----------|-------------|\n")
-        for _, row in top_5.iterrows():
-            f.write(f"| {row['symbol']} | {row['date_range']} | {row['token_accuracy']:.1f}% | {row['return_error']:.2f}% |\n")
+        # Bolt optimization: Replace iterrows() with itertuples() for faster iteration over DataFrames
+        for row in top_5.itertuples():
+            f.write(f"| {row.symbol} | {row.date_range} | {row.token_accuracy:.1f}% | {row.return_error:.2f}% |\n")
         
         f.write("\n## Bottom 5 Predictions\n\n")
         bottom_5 = results_df.nlargest(5, 'return_error')[['symbol', 'date_range', 'token_accuracy', 'return_error']]
         f.write("| Symbol | Date Range | Token Acc | Return Error |\n")
         f.write("|--------|------------|-----------|-------------|\n")
-        for _, row in bottom_5.iterrows():
-            f.write(f"| {row['symbol']} | {row['date_range']} | {row['token_accuracy']:.1f}% | {row['return_error']:.2f}% |\n")
+        # Bolt optimization: Replace iterrows() with itertuples() for faster iteration over DataFrames
+        for row in bottom_5.itertuples():
+            f.write(f"| {row.symbol} | {row.date_range} | {row.token_accuracy:.1f}% | {row.return_error:.2f}% |\n")
         
         f.write("\n")
     
