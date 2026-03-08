@@ -1,3 +1,7 @@
 ## 2024-05-14 - Optimize DataFrame array extraction in Pandas
 **Learning:** For DataFrames with few columns (like OHLC), constructing intermediate multi-column slices (`df[['A', 'B']].iloc[:N]`) to extract a 2D numpy array causes a significant copy and object-creation overhead. Iterating over the columns and extracting the 1D underlying arrays directly via `.values` before slicing (`df['A'].values[:N]`) is about ~3x faster.
 **Action:** When calculating metrics or iterating over a few fixed columns, extract 1D numpy arrays via `df[col].values` individually rather than performing 2D multi-column vectorization, and use `np.divide` with a `where` mask for safe division instead of masking boolean index extraction.
+
+## 2024-05-20 - Optimize causal mask generation to prevent CPU-GPU transfer overhead
+**Learning:** In Autoregressive models, creating the causal mask (e.g. `generate_square_subsequent_mask`) dynamically on the CPU using `torch.ones` and `.masked_fill` during every forward pass, and then moving it to the GPU `.to(device)` incurs massive CPU-to-GPU memory transfer overhead and prevents the pipeline from executing efficiently on the accelerator.
+**Action:** When working with casual masks or other tensors that are reused across steps with similar sizes, cache the tensor as an instance attribute based on size and generate it explicitly on the target device via the `device=` kwarg to prevent reallocation and cross-device synchronization latency.
