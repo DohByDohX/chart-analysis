@@ -55,13 +55,22 @@ class TokenDecoder(nn.Module):
         # Output Head
         self.output_head = nn.Linear(embed_dim, vocab_size)
         
+        # Cache for causal masks to prevent reallocation and cross-device sync
+        self._mask_cache = {}
+
         logger.info(f"Token Decoder initialized. Layers: {num_layers}, Heads: {num_heads}")
 
-    def generate_square_subsequent_mask(self, sz: int) -> torch.Tensor:
+    def generate_square_subsequent_mask(self, sz: int, device: torch.device = None) -> torch.Tensor:
         """Generate causal mask to prevent attending to future tokens."""
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
+        # ⚡ Bolt: Cache masks by size and device to avoid O(N^2) memory reallocation
+        # and cross-device synchronization latency on every forward pass.
+        cache_key = (sz, device)
+        if cache_key not in self._mask_cache:
+            # ⚡ Bolt: Use PyTorch's optimized implementation directly on target device
+            self._mask_cache[cache_key] = torch.nn.Transformer.generate_square_subsequent_mask(
+                sz, device=device
+            )
+        return self._mask_cache[cache_key]
 
     def forward(
         self,
@@ -92,8 +101,8 @@ class TokenDecoder(nn.Module):
         
         # Generate causal mask if not provided
         if tgt_mask is None:
-            device = tgt.device
-            tgt_mask = self.generate_square_subsequent_mask(tgt.size(0)).to(device)
+            # ⚡ Bolt: Pass target device to mask generator to avoid .to() latency
+            tgt_mask = self.generate_square_subsequent_mask(tgt.size(0), device=tgt.device)
             
         # Transformer Decoder pass
         output = self.transformer_decoder(
