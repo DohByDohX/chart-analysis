@@ -5,3 +5,7 @@
 ## 2024-05-15 - Caching Autoregressive Transformer Causal Masks
 **Learning:** Generating the $O(N^2)$ causal mask in `generate_square_subsequent_mask` using `torch.triu(torch.ones(sz, sz))` inside every `forward()` pass causes unnecessary memory reallocation and moving the resulting tensor from CPU to GPU via `.to(device)` adds cross-device synchronization latency, which is a noticeable bottleneck during tight training loops.
 **Action:** Use the highly optimized `torch.nn.Transformer.generate_square_subsequent_mask(sz, device=...)` method that creates the tensor directly on the target device, and cache the resulting mask instances at the class level (keyed by `(size, device)`) to completely avoid recomputation and migration overhead on subsequent calls.
+
+## 2024-05-16 - Avoid eager file existence checks in PyTorch Datasets
+**Learning:** Checking `.exists()` on thousands of files during `Dataset.__init__` adds $O(N)$ system calls, causing massive and completely unnecessary startup latency when running training loops, specifically because Datasets should load data lazily.
+**Action:** When initializing PyTorch Datasets, do string interpolation/path building to construct lists of file paths, but DO NOT verify they exist upfront. Rely on EAFP (Easier to Ask for Forgiveness than Permission) and allow missing files to throw standard `FileNotFoundError` during `__getitem__`.
