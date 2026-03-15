@@ -40,15 +40,19 @@ class TokenDecoder(nn.Module):
         # Token Embedding
         self.embedding = nn.Embedding(vocab_size, embed_dim)
         
-        # Positional Encoding
-        self.pos_encoder = PositionalEncoding(embed_dim, max_len=max_seq_len, dropout=dropout)
+        # ⚡ Bolt Optimization: Use batch_first=True natively in PositionalEncoding and TransformerDecoderLayer
+        # to process inputs directly in (Batch, SeqLen, Dim) format. This eliminates the need for
+        # internal .transpose() operations on input target tokens, memory tensors, and output logits,
+        # reducing memory overhead and significantly improving forward pass speed.
+        self.pos_encoder = PositionalEncoding(embed_dim, max_len=max_seq_len, dropout=dropout, batch_first=True)
         
         # Transformer Decoder
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
             dim_feedforward=embed_dim * 4,
-            dropout=dropout
+            dropout=dropout,
+            batch_first=True
         )
         self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
         
@@ -89,20 +93,13 @@ class TokenDecoder(nn.Module):
         Returns:
             Logits (Batch, TgtSeqLen, VocabSize)
         """
-        # PyTorch Transformer expects (SeqLen, Batch, Dim) by default
-        # But we can use batch_first=False which is default.
-        # So we transpose inputs: (Batch, Seq) -> (Seq, Batch)
-        
         tgt = self.embedding(tgt_tokens) * math.sqrt(self.embed_dim)
-        tgt = tgt.transpose(0, 1) # (TgtSeqLen, Batch, Dim)
-        tgt = self.pos_encoder(tgt)
-        
-        memory = memory.transpose(0, 1) # (SrcSeqLen, Batch, Dim)
+        tgt = self.pos_encoder(tgt) # (Batch, TgtSeqLen, Dim)
         
         # Generate causal mask if not provided
         if tgt_mask is None:
             # ⚡ Bolt: Pass target device to mask generator to avoid .to() latency
-            tgt_mask = self.generate_square_subsequent_mask(tgt.size(0), device=tgt.device)
+            tgt_mask = self.generate_square_subsequent_mask(tgt.size(1), device=tgt.device)
             
         # Transformer Decoder pass
         output = self.transformer_decoder(
@@ -112,7 +109,6 @@ class TokenDecoder(nn.Module):
         )
         
         # Output Head
-        output = self.output_head(output) # (TgtSeqLen, Batch, VocabSize)
+        output = self.output_head(output) # (Batch, TgtSeqLen, VocabSize)
         
-        # Transpose back to (Batch, TgtSeqLen, VocabSize)
-        return output.transpose(0, 1)
+        return output

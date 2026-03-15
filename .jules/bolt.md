@@ -13,3 +13,7 @@
 ## 2024-05-17 - Optimize tensor normalization using in-place operations
 **Learning:** Performing tensor normalization like `image = image / 255.0` creates a temporary tensor and forces a memory allocation. In tight loops like `Dataset.__getitem__`, this allocation overhead is surprisingly costly. Using the in-place counterpart `image.div_(255.0)` eliminates the temporary allocation and speeds up the division step by over 2.5x per sample.
 **Action:** Use in-place tensor operations like `.div_()`, `.mul_()`, `.add_()`, etc., instead of out-of-place arithmetic operators for large array manipulation in data-processing loops to save memory allocations and CPU overhead.
+
+## 2024-03-15 - TokenDecoder Memory Transpose Optimization
+**Learning:** PyTorch's `nn.TransformerDecoderLayer` processes inputs in `(SeqLen, Batch, Dim)` format by default. When the input sequences and memory embeddings are native to `(Batch, SeqLen, Dim)` (as usually output by `nn.Embedding` and ViT encoders), transposing back and forth inside the forward pass creates intermediate non-contiguous memory allocations which causes slowdowns.
+**Action:** Use `batch_first=True` directly in both `nn.TransformerDecoderLayer` and `PositionalEncoding` logic to allow tensors to flow through the module natively without repeated `.transpose(0, 1)` calls.
