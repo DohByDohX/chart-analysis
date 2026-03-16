@@ -25,5 +25,8 @@ class PositionalEncoding(nn.Module):
         Args:
             x: Tensor, shape [SeqLen, Batch, Dim]
         """
-        x = x + self.pe[:x.size(0), :]
+        # ⚡ Bolt Optimization: Use in-place addition to avoid allocating
+        # a temporary tensor during the forward pass, which is called
+        # repeatedly in the decoder during training and generation.
+        x.add_(self.pe[:x.size(0), :])
         return self.dropout(x)

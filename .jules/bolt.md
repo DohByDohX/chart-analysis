@@ -13,3 +13,7 @@
 ## 2024-05-17 - Optimize tensor normalization using in-place operations
 **Learning:** Performing tensor normalization like `image = image / 255.0` creates a temporary tensor and forces a memory allocation. In tight loops like `Dataset.__getitem__`, this allocation overhead is surprisingly costly. Using the in-place counterpart `image.div_(255.0)` eliminates the temporary allocation and speeds up the division step by over 2.5x per sample.
 **Action:** Use in-place tensor operations like `.div_()`, `.mul_()`, `.add_()`, etc., instead of out-of-place arithmetic operators for large array manipulation in data-processing loops to save memory allocations and CPU overhead.
+
+## 2024-05-18 - Eliminate Temporary Tensors in Positional Encoding
+**Learning:** In the `PositionalEncoding` module, doing `x = x + self.pe[:x.size(0), :]` during the forward pass forces PyTorch to allocate a temporary tensor for the output. Because `PositionalEncoding` is called at every step of autoregressive generation (e.g., `model.generate`), this minor allocation overhead accumulates into a measurable slowdown. Using `x.add_(...)` avoids this allocation.
+**Action:** For simple operations like addition or multiplication on tensors inside PyTorch modules that are called repeatedly in a loop (like autoregressive decoding), use in-place methods (`.add_()`, `.mul_()`) to reduce memory allocations and improve iteration speed, provided it doesn't break the backward pass (autograd).
