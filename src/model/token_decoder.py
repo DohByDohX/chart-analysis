@@ -96,7 +96,9 @@ class TokenDecoder(nn.Module):
         # ⚡ Bolt: With batch_first=True, we process directly in (Batch, SeqLen, Dim) format.
         # This removes three transpose() operations per forward pass, keeping memory contiguous.
         
-        tgt = self.embedding(tgt_tokens) * math.sqrt(self.embed_dim)
+        # ⚡ Bolt Optimization: Use in-place multiplication (.mul_) on the newly created
+        # embedding tensor to avoid allocating a second temporary tensor for the result.
+        tgt = self.embedding(tgt_tokens).mul_(math.sqrt(self.embed_dim))
         tgt = self.pos_encoder(tgt) # (Batch, TgtSeqLen, Dim)
         
         # memory is already (Batch, SrcSeqLen, Dim) from VisionEncoder
