@@ -41,14 +41,18 @@ class TokenDecoder(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim)
         
         # Positional Encoding
-        self.pos_encoder = PositionalEncoding(embed_dim, max_len=max_seq_len, dropout=dropout)
+        # ⚡ Bolt: Enable batch_first=True to avoid multiple transpositions
+        self.pos_encoder = PositionalEncoding(embed_dim, max_len=max_seq_len, dropout=dropout, batch_first=True)
         
         # Transformer Decoder
+        # ⚡ Bolt: Use batch_first=True to natively accept (Batch, SeqLen, Dim)
+        # avoiding costly transpose operations that create non-contiguous tensors.
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
             dim_feedforward=embed_dim * 4,
-            dropout=dropout
+            dropout=dropout,
+            batch_first=True
         )
         self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
         
@@ -89,30 +93,30 @@ class TokenDecoder(nn.Module):
         Returns:
             Logits (Batch, TgtSeqLen, VocabSize)
         """
-        # PyTorch Transformer expects (SeqLen, Batch, Dim) by default
-        # But we can use batch_first=False which is default.
-        # So we transpose inputs: (Batch, Seq) -> (Seq, Batch)
+        # ⚡ Bolt: With batch_first=True, we process directly in (Batch, SeqLen, Dim) format.
+        # This removes three transpose() operations per forward pass, keeping memory contiguous.
         
-        tgt = self.embedding(tgt_tokens) * math.sqrt(self.embed_dim)
-        tgt = tgt.transpose(0, 1) # (TgtSeqLen, Batch, Dim)
-        tgt = self.pos_encoder(tgt)
+        # ⚡ Bolt Optimization: Use in-place multiplication (.mul_) on the newly created
+        # embedding tensor to avoid allocating a second temporary tensor for the result.
+        tgt = self.embedding(tgt_tokens).mul_(math.sqrt(self.embed_dim))
+        tgt = self.pos_encoder(tgt) # (Batch, TgtSeqLen, Dim)
         
-        memory = memory.transpose(0, 1) # (SrcSeqLen, Batch, Dim)
+        # memory is already (Batch, SrcSeqLen, Dim) from VisionEncoder
         
         # Generate causal mask if not provided
         if tgt_mask is None:
             # ⚡ Bolt: Pass target device to mask generator to avoid .to() latency
-            tgt_mask = self.generate_square_subsequent_mask(tgt.size(0), device=tgt.device)
+            # tgt is (Batch, TgtSeqLen, Dim), so size(1) is TgtSeqLen
+            tgt_mask = self.generate_square_subsequent_mask(tgt.size(1), device=tgt.device)
             
         # Transformer Decoder pass
         output = self.transformer_decoder(
             tgt=tgt,
             memory=memory,
             tgt_mask=tgt_mask
-        )
+        ) # (Batch, TgtSeqLen, Dim)
         
         # Output Head
-        output = self.output_head(output) # (TgtSeqLen, Batch, VocabSize)
+        output = self.output_head(output) # (Batch, TgtSeqLen, VocabSize)
         
-        # Transpose back to (Batch, TgtSeqLen, VocabSize)
-        return output.transpose(0, 1)
+        return output

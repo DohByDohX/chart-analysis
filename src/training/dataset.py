@@ -43,14 +43,15 @@ class ChartDataset(Dataset):
         if len(self.window_files) == 0:
             raise ValueError(f"No window files found in {windows_dir}")
 
-        # Pre-calculate image paths and verify existence
+        # Pre-calculate image paths
+        # ⚡ Bolt Optimization: Removed O(N) .exists() file system checks during init.
+        # We rely on EAFP (Easier to Ask for Forgiveness than Permission) when
+        # Image.open() is called in __getitem__, which prevents dataset startup latency.
         self.image_paths = []
         for window_file in self.window_files:
             # Extract window ID from filename (e.g., "window_00001.json" -> "00001")
             window_id = window_file.stem.split('_')[1]
             image_path = self.images_dir / f"chart_{window_id}.png"
-            if not image_path.exists():
-                raise FileNotFoundError(f"Image not found: {image_path}")
             self.image_paths.append(image_path)
 
         # Cache for tokenized targets
