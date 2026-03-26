@@ -75,11 +75,9 @@ class ChartDataset(Dataset):
         image = Image.open(image_path).convert('RGB')
         
         # Convert to tensor and normalize to [0, 1]
-        # ⚡ Bolt Optimization: Use in-place division (div_) to avoid creating
-        # a temporary tensor during normalization, saving a memory allocation
-        # and speeding up transformation by over 2.5x per sample.
-        image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float()
-        image.div_(255.0)
+        # ⚡ Bolt Optimization: Use in-place division `.div_()` instead of `/` to avoid
+        # allocating a large intermediate tensor for every image loaded in the dataset.
+        image = torch.from_numpy(np.array(image)).permute(2, 0, 1).float().div_(255.0)
         
         # Apply transforms if any
         if self.transform is not None:

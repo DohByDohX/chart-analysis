@@ -6,22 +6,6 @@
 **Learning:** Generating the $O(N^2)$ causal mask in `generate_square_subsequent_mask` using `torch.triu(torch.ones(sz, sz))` inside every `forward()` pass causes unnecessary memory reallocation and moving the resulting tensor from CPU to GPU via `.to(device)` adds cross-device synchronization latency, which is a noticeable bottleneck during tight training loops.
 **Action:** Use the highly optimized `torch.nn.Transformer.generate_square_subsequent_mask(sz, device=...)` method that creates the tensor directly on the target device, and cache the resulting mask instances at the class level (keyed by `(size, device)`) to completely avoid recomputation and migration overhead on subsequent calls.
 
-## 2024-05-16 - Avoid eager file existence checks in PyTorch Datasets
-**Learning:** Checking `.exists()` on thousands of files during `Dataset.__init__` adds $O(N)$ system calls, causing massive and completely unnecessary startup latency when running training loops, specifically because Datasets should load data lazily.
-**Action:** When initializing PyTorch Datasets, do string interpolation/path building to construct lists of file paths, but DO NOT verify they exist upfront. Rely on EAFP (Easier to Ask for Forgiveness than Permission) and allow missing files to throw standard `FileNotFoundError` during `__getitem__`.
-
-## 2024-05-17 - Optimize tensor normalization using in-place operations
-**Learning:** Performing tensor normalization like `image = image / 255.0` creates a temporary tensor and forces a memory allocation. In tight loops like `Dataset.__getitem__`, this allocation overhead is surprisingly costly. Using the in-place counterpart `image.div_(255.0)` eliminates the temporary allocation and speeds up the division step by over 2.5x per sample.
-**Action:** Use in-place tensor operations like `.div_()`, `.mul_()`, `.add_()`, etc., instead of out-of-place arithmetic operators for large array manipulation in data-processing loops to save memory allocations and CPU overhead.
-
-## 2024-05-18 - Avoiding costly tensor transpositions in Transformers
-**Learning:** PyTorch's `TransformerDecoderLayer` defaults to `batch_first=False`, which expects `(SeqLen, Batch, Dim)` inputs. In a model where earlier stages (like `VisionEncoder`) naturally output `(Batch, SeqLen, Dim)`, adapting the inputs by calling `.transpose(0, 1)` creates non-contiguous tensors. This causes implicit copies during subsequent operations or cache misses, which adds up to noticeable overhead when generating tokens autoregressively.
-**Action:** Always instantiate `TransformerDecoderLayer` and custom `PositionalEncoding` modules with `batch_first=True` when dealing with `(Batch, SeqLen, Dim)` data, avoiding unnecessary tensor dimension permutations during the forward pass.
-
-## 2024-05-19 - Avoid unbounded caching in PyTorch Datasets
-**Learning:** Caching raw file contents (like parsed JSONs) in an unbounded dictionary (`self.cache = {}`) inside a PyTorch `Dataset` is extremely dangerous and creates an Out-Of-Memory (OOM) risk. Datasets are designed for out-of-core loading explicitly to avoid memory accumulation during long training runs.
-**Action:** Never implement unbounded dictionary caching for file contents in a `Dataset` class.
-
-## 2024-05-20 - Avoid pd.concat for min/max calculations across DataFrames
-**Learning:** Using `pd.concat` to join multiple DataFrame slices just to calculate a global minimum or maximum causes massive object instantiation and memory reallocation overhead. It can be significantly slower than directly calculating the min/max on the underlying 1D numpy arrays.
-**Action:** When calculating global extremums across multiple DataFrames, compute the min/max directly on the 1D numpy arrays using `min(df1['col'].values.min(), df2['col'].values.min())` to bypass DataFrame instantiation, resulting in ~12x faster execution.
+## 2024-05-16 - Safe vs Unsafe In-Place PyTorch Operations
+**Learning:** In PyTorch modules, using in-place operations (e.g., `.div_()`) on newly created temporary tensors (like loaded image arrays) eliminates unnecessary allocations and improves performance safely. However, mutating input tensors passed to `forward` methods (e.g., `x.add_()` on an argument `x`) is an unsafe anti-pattern that can break the autograd graph if the unmodified tensor is needed for backpropagation elsewhere.
+**Action:** Always favor in-place operations (`.div_()`, `.mul_()`, etc) for newly created, intermediate tensors within a data pipeline or forward pass, but strictly use out-of-place operations (`x = x + y`) for any tensors passed as inputs to a module or function.
