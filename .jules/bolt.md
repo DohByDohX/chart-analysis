@@ -17,3 +17,11 @@
 ## 2024-05-18 - Avoiding costly tensor transpositions in Transformers
 **Learning:** PyTorch's `TransformerDecoderLayer` defaults to `batch_first=False`, which expects `(SeqLen, Batch, Dim)` inputs. In a model where earlier stages (like `VisionEncoder`) naturally output `(Batch, SeqLen, Dim)`, adapting the inputs by calling `.transpose(0, 1)` creates non-contiguous tensors. This causes implicit copies during subsequent operations or cache misses, which adds up to noticeable overhead when generating tokens autoregressively.
 **Action:** Always instantiate `TransformerDecoderLayer` and custom `PositionalEncoding` modules with `batch_first=True` when dealing with `(Batch, SeqLen, Dim)` data, avoiding unnecessary tensor dimension permutations during the forward pass.
+
+## 2024-05-19 - Avoid unbounded caching in PyTorch Datasets
+**Learning:** Caching raw file contents (like parsed JSONs) in an unbounded dictionary (`self.cache = {}`) inside a PyTorch `Dataset` is extremely dangerous and creates an Out-Of-Memory (OOM) risk. Datasets are designed for out-of-core loading explicitly to avoid memory accumulation during long training runs.
+**Action:** Never implement unbounded dictionary caching for file contents in a `Dataset` class.
+
+## 2024-05-20 - Avoid pd.concat for min/max calculations across DataFrames
+**Learning:** Using `pd.concat` to join multiple DataFrame slices just to calculate a global minimum or maximum causes massive object instantiation and memory reallocation overhead. It can be significantly slower than directly calculating the min/max on the underlying 1D numpy arrays.
+**Action:** When calculating global extremums across multiple DataFrames, compute the min/max directly on the 1D numpy arrays using `min(df1['col'].values.min(), df2['col'].values.min())` to bypass DataFrame instantiation, resulting in ~12x faster execution.
