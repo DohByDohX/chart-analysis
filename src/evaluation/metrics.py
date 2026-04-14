@@ -115,14 +115,17 @@ class PredictionMetrics:
         min_len = min(len(self.actual_ohlcv), len(self.predicted_ohlcv))
         cols = ['Open', 'High', 'Low', 'Close']
 
-        rmse_dict = {}
-        for col in cols:
-            # Bolt optimization: Extract 1D numpy array directly
-            a = self.actual_ohlcv[col].values[:min_len]
-            p = self.predicted_ohlcv[col].values[:min_len]
-            rmse_dict[col] = float(np.sqrt(np.mean((a - p) ** 2)))
+        if min_len == 0:
+            return {col: 0.0 for col in cols}
 
-        return rmse_dict
+        # ⚡ Bolt optimization: Extract values as list comprehension and stack to run fully vectorized math
+        a_stacked = np.column_stack([self.actual_ohlcv[col].values[:min_len] for col in cols])
+        p_stacked = np.column_stack([self.predicted_ohlcv[col].values[:min_len] for col in cols])
+
+        # Calculate RMSE across columns in one shot
+        rmse_vals = np.sqrt(np.mean((a_stacked - p_stacked) ** 2, axis=0))
+
+        return {col: float(val) for col, val in zip(cols, rmse_vals)}
     
     def mape(self) -> Dict[str, float]:
         """
