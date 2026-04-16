@@ -9,3 +9,7 @@
 ## 2024-05-16 - Safe vs Unsafe In-Place PyTorch Operations
 **Learning:** In PyTorch modules, using in-place operations (e.g., `.div_()`) on newly created temporary tensors (like loaded image arrays) eliminates unnecessary allocations and improves performance safely. However, mutating input tensors passed to `forward` methods (e.g., `x.add_()` on an argument `x`) is an unsafe anti-pattern that can break the autograd graph if the unmodified tensor is needed for backpropagation elsewhere.
 **Action:** Always favor in-place operations (`.div_()`, `.mul_()`, etc) for newly created, intermediate tensors within a data pipeline or forward pass, but strictly use out-of-place operations (`x = x + y`) for any tensors passed as inputs to a module or function.
+
+## 2024-05-18 - Dictionary Array Indexing Over DataFrame Initialization
+**Learning:** Extracting a single element (e.g., the last element of a time series) directly from a dictionary of lists (e.g. `dict_data['Close'][-1]`) is significantly faster than wrapping the entire dictionary in a `pandas.DataFrame` just to use `.iloc[-1]`, due to DataFrame instantiation overhead.
+**Action:** When accessing a single row or index from array-like or list-based dictionaries, use direct dictionary and list indexing instead of full DataFrame conversion.

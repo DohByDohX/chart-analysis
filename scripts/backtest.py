@@ -99,15 +99,16 @@ def main():
         symbol = window_data['symbol']
         
         # Get last candle from input window
-        input_window_df = pd.DataFrame(window_data['input_window'])
-        last_input_candle = input_window_df.iloc[-1]
+        # ⚡ Bolt optimization: Extract last candle directly from dictionary lists
+        # instead of instantiating a full DataFrame just to get the last row.
+        input_window = window_data['input_window']
         
         last_candle = {
-            'Close': last_input_candle['Close'],
-            'Open': last_input_candle['Open'],
-            'High': last_input_candle['High'],
-            'Low': last_input_candle['Low'],
-            'Volume': last_input_candle['Volume']
+            'Close': input_window['Close'][-1],
+            'Open': input_window['Open'][-1],
+            'High': input_window['High'][-1],
+            'Low': input_window['Low'][-1],
+            'Volume': input_window['Volume'][-1]
         }
         
         # Generate predictions
