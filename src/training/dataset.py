@@ -57,6 +57,14 @@ class ChartDataset(Dataset):
         # Cache for tokenized targets
         self.token_cache = {}
         
+        # ⚡ Bolt Optimization: Eagerly load all small JSON files into memory during initialization
+        # to prevent O(N) synchronous file I/O operations from bottlenecking the __getitem__ hot-path
+        # during training loops.
+        self.window_data_cache = []
+        for window_file in self.window_files:
+            with open(window_file, 'r') as f:
+                self.window_data_cache.append(json.load(f))
+
         logger.info(f"Loaded {len(self.window_files)} windows from {windows_dir}")
     
     def __len__(self):
@@ -100,6 +108,6 @@ class ChartDataset(Dataset):
     
     def get_window_data(self, idx):
         """Get the raw window data for inspection."""
-        window_file = self.window_files[idx]
-        with open(window_file, 'r') as f:
-            return json.load(f)
+        # ⚡ Bolt Optimization: Return pre-loaded JSON data directly from memory cache
+        # instead of performing synchronous file reading.
+        return self.window_data_cache[idx]
