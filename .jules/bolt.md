@@ -13,3 +13,7 @@
 ## 2024-05-18 - Dictionary Array Indexing Over DataFrame Initialization
 **Learning:** Extracting a single element (e.g., the last element of a time series) directly from a dictionary of lists (e.g. `dict_data['Close'][-1]`) is significantly faster than wrapping the entire dictionary in a `pandas.DataFrame` just to use `.iloc[-1]`, due to DataFrame instantiation overhead.
 **Action:** When accessing a single row or index from array-like or list-based dictionaries, use direct dictionary and list indexing instead of full DataFrame conversion.
+
+## 2024-05-20 - Eager caching of small JSON dataset metadata
+**Learning:** Reading JSON files from disk during the PyTorch `__getitem__` hot-path introduces synchronous file I/O latency that significantly bottlenecks training loops. If the total dataset metadata size is small (e.g. ~25MB for 5,000 samples), eager loading the raw JSON data into memory during `__init__` reduces access latency drastically.
+**Action:** Use an in-memory eager cache for dataset JSON metadata when the memory footprint is confirmed to be safely within limits, avoiding file reads in `__getitem__`.
