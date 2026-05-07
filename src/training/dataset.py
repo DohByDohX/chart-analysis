@@ -48,6 +48,7 @@ class ChartDataset(Dataset):
         # We rely on EAFP (Easier to Ask for Forgiveness than Permission) when
         # Image.open() is called in __getitem__, which prevents dataset startup latency.
         self.image_paths = []
+
         for window_file in self.window_files:
             # Extract window ID from filename (e.g., "window_00001.json" -> "00001")
             window_id = window_file.stem.split('_')[1]
@@ -62,6 +63,22 @@ class ChartDataset(Dataset):
     def __len__(self):
         return len(self.window_files)
     
+    def get_target_tokens(self, idx):
+        """
+        Get target tokens directly, bypassing image processing overhead.
+        Useful for token-only analysis.
+        """
+        # ⚡ Bolt Optimization: Lazily cache tokenized targets to prevent redundant
+        # JSON parsing and tokenization during training loops.
+        if idx not in self.token_cache:
+            window_data = self.get_window_data(idx)
+            target_window = window_data['target_window']
+            target_df = pd.DataFrame(target_window)
+            token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
+            self.token_cache[idx] = torch.tensor(token_ids, dtype=torch.long)
+
+        return self.token_cache[idx]
+
     def __getitem__(self, idx):
         """
         Get a single sample.
@@ -83,18 +100,8 @@ class ChartDataset(Dataset):
         if self.transform is not None:
             image = self.transform(image)
         
-        # Tokenize target window
-        # Convert dict to DataFrame (data is loaded from JSON as dict)
-        # ⚡ Bolt Optimization: Lazily cache tokenized targets to prevent redundant
-        # JSON parsing and tokenization during training loops.
-        if idx not in self.token_cache:
-            window_data = self.get_window_data(idx)
-            target_window = window_data['target_window']
-            target_df = pd.DataFrame(target_window)
-            token_ids, _ = self.tokenizer.tokenize_window(target_df)  # Returns (token_ids, characteristics)
-            self.token_cache[idx] = torch.tensor(token_ids, dtype=torch.long)
-
-        target_tokens = self.token_cache[idx]
+        # Get target tokens (utilizing the cached extraction method)
+        target_tokens = self.get_target_tokens(idx)
         
         return image, target_tokens
     

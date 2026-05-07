@@ -13,3 +13,7 @@
 ## 2024-05-18 - Dictionary Array Indexing Over DataFrame Initialization
 **Learning:** Extracting a single element (e.g., the last element of a time series) directly from a dictionary of lists (e.g. `dict_data['Close'][-1]`) is significantly faster than wrapping the entire dictionary in a `pandas.DataFrame` just to use `.iloc[-1]`, due to DataFrame instantiation overhead.
 **Action:** When accessing a single row or index from array-like or list-based dictionaries, use direct dictionary and list indexing instead of full DataFrame conversion.
+
+## 2024-05-19 - Bypassing Image Pipeline in Token-Only Analysis
+**Learning:** During dataset iterations where only target tokens are required (e.g., in `analyze_token_distribution.py`), using standard `dataset[i]` indexing executes the full `__getitem__` pipeline, which involves loading images from disk, converting them to RGB, converting to NumPy arrays, transposing dimensions, loading into PyTorch, and performing in-place float division. This creates an enormous performance bottleneck (a 30-60% degradation) when the image tensor is immediately discarded.
+**Action:** When a PyTorch `Dataset` contains a method to retrieve specific components directly (e.g., `get_target_tokens(idx)`), scripts that perform token-only analysis must use this targeted method rather than unpacking tuples from the main `__getitem__` indexer, thereby completely skipping the expensive image I/O and processing pipeline.
