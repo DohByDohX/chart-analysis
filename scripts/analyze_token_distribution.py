@@ -38,7 +38,9 @@ def main():
     # Collect all tokens
     all_tokens = []
     for i in range(len(dataset)):
-        _, target_tokens = dataset[i]
+        # ⚡ Bolt Optimization: Use get_target_tokens directly to bypass
+        # the expensive image loading and processing overhead in __getitem__
+        target_tokens = dataset.get_target_tokens(i)
         all_tokens.extend(target_tokens.numpy().tolist())
     
     logger.info(f"Total tokens: {len(all_tokens)}")
